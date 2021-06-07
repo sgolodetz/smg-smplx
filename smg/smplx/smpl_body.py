@@ -7,7 +7,7 @@ import torch
 from OpenGL.GL import *
 from typing import Optional
 
-from smg.opengl import OpenGLUtil
+from smg.opengl import OpenGLMatrixContext, OpenGLUtil
 from smg.skeletons import Skeleton
 from smg.utility import GeometryUtil
 
@@ -122,6 +122,7 @@ class SMPLBody:
         self.__body_pose: np.ndarray = np.zeros(self.__model.NUM_BODY_JOINTS * 3, dtype=np.float32)
 
         self.__faces: np.ndarray = self.__model.faces
+        self.__global_pose: np.ndarray = np.eye(4)
 
         # 0 = pelvis, 1 = left hip, 2 = right hip, 3 = spine1, 4 = left knee, 5 = right knee,
         # 6 = spine2, 7 = left ankle, 8 = right ankle, 9 = spine3, 10 = left foot,
@@ -170,30 +171,30 @@ class SMPLBody:
         face_vertex_normals: np.ndarray = vertex_normals[self.__faces]
 
         # ~~~
-        # Step 2: Render the mesh.
+        # Step 2: Render the body.
         # ~~~
-        glColor3f(0.7, 0.7, 0.7)
+        with OpenGLMatrixContext(GL_MODELVIEW, lambda: OpenGLUtil.mult_matrix(self.__global_pose)):
+            # Render the mesh.
+            glColor3f(0.7, 0.7, 0.7)
 
-        glPushClientAttrib(GL_CLIENT_VERTEX_ARRAY_BIT)
+            glPushClientAttrib(GL_CLIENT_VERTEX_ARRAY_BIT)
 
-        glEnableClientState(GL_VERTEX_ARRAY)
-        glEnableClientState(GL_NORMAL_ARRAY)
-        glVertexPointer(3, GL_FLOAT, 0, face_vertices)
-        glNormalPointer(GL_FLOAT, 0, face_vertex_normals)
+            glEnableClientState(GL_VERTEX_ARRAY)
+            glEnableClientState(GL_NORMAL_ARRAY)
+            glVertexPointer(3, GL_FLOAT, 0, face_vertices)
+            glNormalPointer(GL_FLOAT, 0, face_vertex_normals)
 
-        glPolygonMode(GL_FRONT_AND_BACK, GL_LINE)
-        glDrawArrays(GL_TRIANGLES, 0, len(face_vertices) * 3)
-        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL)
+            glPolygonMode(GL_FRONT_AND_BACK, GL_LINE)
+            glDrawArrays(GL_TRIANGLES, 0, len(face_vertices) * 3)
+            glPolygonMode(GL_FRONT_AND_BACK, GL_FILL)
 
-        glPopClientAttrib()
+            glPopClientAttrib()
 
-        # ~~~
-        # Step 3: Render the joints.
-        # ~~~
-        glColor3f(1.0, 0.0, 1.0)
+            # Render the joints.
+            glColor3f(1.0, 0.0, 1.0)
 
-        for i in range(24):
-            OpenGLUtil.render_sphere(self.__joints[i], 0.02, slices=10, stacks=10)
+            for i in range(24):
+                OpenGLUtil.render_sphere(self.__joints[i], 0.02, slices=10, stacks=10)
 
     def set_from_skeleton(self, skeleton: Skeleton) -> None:
         midhip_keypoint: Optional[Skeleton.Keypoint] = skeleton.keypoints.get("MidHip")
@@ -205,12 +206,20 @@ class SMPLBody:
             betas=None,
             body_pose=torch.from_numpy(self.__body_pose).unsqueeze(dim=0),
             global_orient=torch.from_numpy(np.array([math.pi, 0, 0], dtype=np.float32)).unsqueeze(dim=0),
-            transl=torch.from_numpy(midhip_keypoint.position).unsqueeze(dim=0),
+            # transl=torch.from_numpy(midhip_keypoint.position).unsqueeze(dim=0),
             return_verts=True
         )
 
         self.__joints = output.joints.detach().cpu().numpy().squeeze()
         self.__vertices = output.vertices.detach().cpu().numpy().squeeze()
+
+        midhip_smplj: np.ndarray = (self.__joints[SMPLJ_LEFT_HIP] + self.__joints[SMPLJ_RIGHT_HIP]) / 2
+        self.__global_pose = np.eye(4)
+        self.__global_pose[0:3, 3] = midhip_keypoint.position - midhip_smplj
+
+        print(np.linalg.norm(midhip_keypoint.position - neck_keypoint.position))
+        print(np.linalg.norm(self.__joints[SMPLJ_PELVIS] - self.__joints[SMPLJ_NECK]))
+        print("===")
 
     # PRIVATE STATIC METHODS
 
