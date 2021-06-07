@@ -25,44 +25,55 @@ class SMPLBody:
     # PUBLIC METHODS
 
     def render(self) -> None:
-        ###
+        """
+        Render the body using OpenGL.
+
+        .. note::
+            The implementation is an adapted version of:
+            https://sites.google.com/site/dlampetest/python/calculating-normals-of-a-triangle-mesh-using-numpy
+        """
+        # ~~~
+        # Step 1: Prepare the mesh for rendering.
+        # ~~~
+
+        # Make an F*3*3 array that explicitly lists the vertices for each face (F faces, 3 vertices per face,
+        # 3 components per vertex).
+        face_vertices: np.ndarray = self.__vertices[self.__faces]
+
+        # Compute the normal for each face. The resulting array has shape F*3 (F faces, 3 components per normal).
+        face_normals: np.ndarray = np.cross(
+            face_vertices[::, 1] - face_vertices[::, 0],
+            face_vertices[::, 2] - face_vertices[::, 0]
+        )
+        SMPLBody.__normalise_inplace(face_normals)
+
+        # Compute the normal for each vertex by averaging the normals of all the faces that contain it.
+        # The resulting array has shape V*3 (V vertices, 3 components per normal).
+        vertex_normals: np.ndarray = np.zeros_like(self.__vertices)
+        vertex_normals[self.__faces[:, 0]] += face_normals
+        vertex_normals[self.__faces[:, 1]] += face_normals
+        vertex_normals[self.__faces[:, 2]] += face_normals
+        SMPLBody.__normalise_inplace(vertex_normals)
+
+        # Make an F*3*3 array that explicitly lists the vertex normals for each face (F faces, 3 vertices per face,
+        # 3 components per normal).
+        face_vertex_normals: np.ndarray = vertex_normals[self.__faces]
+
+        # ~~~
+        # Step 2: Render the mesh.
+        # ~~~
         glColor3f(0.7, 0.7, 0.7)
-        glEnable(GL_LIGHTING)
-        glEnable(GL_COLOR_MATERIAL)
 
-        # Create a zeroed array with the same type and shape as our vertices i.e., per vertex normal
-        norm = np.zeros(self.__vertices.shape, dtype=self.__vertices.dtype)
-        # Create an indexed view into the vertex array using the array of three indices for triangles
-        tris = self.__vertices[self.__faces]
-        # Calculate the normal for all the triangles, by taking the cross product of the vectors v1-v0, and v2-v0 in each triangle
-        n = np.cross(tris[::, 1] - tris[::, 0], tris[::, 2] - tris[::, 0])
-        # n is now an array of normals per triangle. The length of each normal is dependent the vertices,
-        # we need to normalize these, so that our next step weights each normal equally.
-        SMPLBody.__normalize_v3(n)
-        # now we have a normalized array of normals, one per triangle, i.e., per triangle normals.
-        # But instead of one per triangle (i.e., flat shading), we add to each vertex in that triangle,
-        # the triangles' normal. Multiple triangles would then contribute to every vertex, so we need to normalize again afterwards.
-        # The cool part, we can actually add the normals through an indexed view of our (zeroed) per vertex normal array
-        norm[self.__faces[:, 0]] += n
-        norm[self.__faces[:, 1]] += n
-        norm[self.__faces[:, 2]] += n
-        SMPLBody.__normalize_v3(norm)
-
-        # To render without the index list, we create a flattened array where
-        # the triangle indices are replaced with the actual vertices.
-
-        # first we create a single column index array
-        tri_index = self.__faces.reshape((-1))
-        # then we create an indexed view into our vertices and normals
-        va = self.__vertices[self.__faces]
-        no = norm[self.__faces]
+        glPushClientAttrib(GL_CLIENT_VERTEX_ARRAY_BIT)
 
         glEnableClientState(GL_VERTEX_ARRAY)
         glEnableClientState(GL_NORMAL_ARRAY)
-        glVertexPointer(3, GL_FLOAT, 0, va)
-        glNormalPointer(GL_FLOAT, 0, no)
-        glDrawArrays(GL_TRIANGLES, 0, len(va) * 3)
-        ###
+        glVertexPointer(3, GL_FLOAT, 0, face_vertices)
+        glNormalPointer(GL_FLOAT, 0, face_vertex_normals)
+
+        glDrawArrays(GL_TRIANGLES, 0, len(face_vertices) * 3)
+
+        glPopClientAttrib()
 
     def set_from_skeleton(self, skeleton: Skeleton) -> None:
         output: smplx.utils.SMPLOutput = self.__model(
@@ -74,12 +85,18 @@ class SMPLBody:
 
     # PRIVATE STATIC METHODS
 
-    # See: https://sites.google.com/site/dlampetest/python/calculating-normals-of-a-triangle-mesh-using-numpy
     @staticmethod
-    def __normalize_v3(arr):
-        ''' Normalize a numpy array of 3 component vectors shape=(n,3) '''
-        lens = np.sqrt( arr[:,0]**2 + arr[:,1]**2 + arr[:,2]**2 )
-        arr[:,0] /= lens
-        arr[:,1] /= lens
-        arr[:,2] /= lens
-        return arr
+    def __normalise_inplace(vecs: np.ndarray) -> None:
+        """
+        Efficiently normalise each of the n vectors in an n*3 array (in-place).
+
+        .. note::
+            Every vector in the array must have a non-zero length.
+
+        :param vecs:    The vectors to normalise.
+        """
+        # See: https://sites.google.com/site/dlampetest/python/calculating-normals-of-a-triangle-mesh-using-numpy.
+        lens: np.ndarray = np.sqrt(vecs[:, 0] ** 2 + vecs[:, 1] ** 2 + vecs[:, 2] ** 2)
+        vecs[:, 0] /= lens
+        vecs[:, 1] /= lens
+        vecs[:, 2] /= lens
