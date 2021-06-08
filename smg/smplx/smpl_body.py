@@ -232,6 +232,9 @@ class SMPLBody:
 
     def __set_joint_rel_rotation(self, joint_id: int, joint_name: str,
                                  joint_rel_rotations: Dict[str, np.ndarray]) -> None:
+        # rot = Rotation.from_matrix(joint_rel_rotations[joint_name]).as_rotvec()
+        # import vg
+        # print(joint_id, joint_name, vg.normalize(rot), np.linalg.norm(rot))
         self.__body_pose[(joint_id - 1) * 3:joint_id * 3] = \
             Rotation.from_matrix(joint_rel_rotations[joint_name]).as_rotvec()
 
