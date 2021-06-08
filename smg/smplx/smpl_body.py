@@ -213,7 +213,7 @@ class SMPLBody:
         self.__joints = output.joints.detach().cpu().numpy().squeeze()
         self.__vertices = output.vertices.detach().cpu().numpy().squeeze()
 
-        midhip_smplj: np.ndarray = (self.__joints[SMPLJ_LEFT_HIP] + self.__joints[SMPLJ_RIGHT_HIP]) / 2
+        midhip_smplj: np.ndarray = (self.__joints[SMPLJ_PELVIS] + self.__joints[SMPLJ_LEFT_HIP] + self.__joints[SMPLJ_RIGHT_HIP]) / 3
         self.__global_pose = np.eye(4)
         self.__global_pose[0:3, 3] = midhip_keypoint.position - midhip_smplj
 
