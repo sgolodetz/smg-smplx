@@ -205,9 +205,17 @@ class SMPLBody:
 
         joint_rotations, joint_rel_rotations = skeleton.compute_joint_rotations()
 
-        self.__set_joint_rel_rotation(SMPLJ_NECK, "Neck", joint_rel_rotations)
-        self.__set_joint_rel_rotation(SMPLJ_RIGHT_ELBOW, "RElbow", joint_rel_rotations)
-        self.__set_joint_rel_rotation(SMPLJ_RIGHT_SHOULDER, "RShoulder", joint_rel_rotations)
+        # self.__set_joint_rel_rotation(SMPLJ_LEFT_ELBOW, "LElbow", joint_rel_rotations)
+        # self.__set_joint_rel_rotation(SMPLJ_LEFT_SHOULDER, "LShoulder", joint_rel_rotations)
+        # self.__set_joint_rel_rotation(SMPLJ_NECK, "Neck", joint_rel_rotations)
+        # self.__set_joint_rel_rotation(SMPLJ_RIGHT_ELBOW, "RElbow", joint_rel_rotations)
+        # self.__set_joint_rel_rotation(SMPLJ_RIGHT_SHOULDER, "RShoulder", joint_rel_rotations)
+
+        # Note: Clockwise rotations around the axes!
+        self.__body_pose[(SMPLJ_LEFT_ELBOW - 1) * 3:SMPLJ_LEFT_ELBOW * 3] = np.array([0, 0, math.pi / 4])
+        self.__body_pose[(SMPLJ_LEFT_SHOULDER - 1) * 3:SMPLJ_LEFT_SHOULDER * 3] = np.array([0, 0, math.pi / 4])
+        self.__body_pose[(SMPLJ_NECK - 1) * 3:SMPLJ_NECK * 3] = np.array([0, 0, math.pi / 4])
+        self.__body_pose[(SMPLJ_RIGHT_SHOULDER - 1) * 3:SMPLJ_RIGHT_SHOULDER * 3] = np.array([0, 0, -math.pi/4])
 
         output: smplx.utils.SMPLOutput = self.__model(
             betas=None,
