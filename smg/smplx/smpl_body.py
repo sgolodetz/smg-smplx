@@ -5,11 +5,11 @@ import smplx.utils
 import torch
 
 from OpenGL.GL import *
-from typing import Optional
+from scipy.spatial.transform import Rotation
+from typing import Dict, Optional
 
 from smg.opengl import OpenGLMatrixContext, OpenGLUtil
 from smg.skeletons import Skeleton
-from smg.utility import GeometryUtil
 
 
 # HELPER ENUMERATIONS
@@ -39,40 +39,40 @@ class ESMPLJoint(int):
             return "SMPLJ_RIGHT_KNEE"
         elif self == SMPLJ_SPINE2:
             return "SMPLJ_SPINE2"
-        elif self == SMPLJ_LEFT_ANKLE:
-            return "SMPLJ_LEFT_ANKLE"
         elif self == SMPLJ_RIGHT_ANKLE:
             return "SMPLJ_RIGHT_ANKLE"
+        elif self == SMPLJ_LEFT_ANKLE:
+            return "SMPLJ_LEFT_ANKLE"
         elif self == SMPLJ_SPINE3:
             return "SMPLJ_SPINE3"
-        elif self == SMPLJ_LEFT_FOOT:
-            return "SMPLJ_LEFT_FOOT"
         elif self == SMPLJ_RIGHT_FOOT:
             return "SMPLJ_RIGHT_FOOT"
+        elif self == SMPLJ_LEFT_FOOT:
+            return "SMPLJ_LEFT_FOOT"
         elif self == SMPLJ_NECK:
             return "SMPLJ_NECK"
-        elif self == SMPLJ_LEFT_COLLAR:
-            return "SMPLJ_LEFT_COLLAR"
         elif self == SMPLJ_RIGHT_COLLAR:
             return "SMPLJ_RIGHT_COLLAR"
+        elif self == SMPLJ_LEFT_COLLAR:
+            return "SMPLJ_LEFT_COLLAR"
         elif self == SMPLJ_HEAD:
             return "SMPLJ_HEAD"
-        elif self == SMPLJ_LEFT_SHOULDER:
-            return "SMPLJ_LEFT_SHOULDER"
         elif self == SMPLJ_RIGHT_SHOULDER:
             return "SMPLJ_RIGHT_SHOULDER"
-        elif self == SMPLJ_LEFT_ELBOW:
-            return "SMPLJ_LEFT_ELBOW"
+        elif self == SMPLJ_LEFT_SHOULDER:
+            return "SMPLJ_LEFT_SHOULDER"
         elif self == SMPLJ_RIGHT_ELBOW:
             return "SMPLJ_RIGHT_ELBOW"
-        elif self == SMPLJ_LEFT_WRIST:
-            return "SMPLJ_LEFT_WRIST"
+        elif self == SMPLJ_LEFT_ELBOW:
+            return "SMPLJ_LEFT_ELBOW"
         elif self == SMPLJ_RIGHT_WRIST:
             return "SMPLJ_RIGHT_WRIST"
-        elif self == SMPLJ_LEFT_HAND:
-            return "SMPLJ_LEFT_HAND"
+        elif self == SMPLJ_LEFT_WRIST:
+            return "SMPLJ_LEFT_WRIST"
         elif self == SMPLJ_RIGHT_HAND:
             return "SMPLJ_RIGHT_HAND"
+        elif self == SMPLJ_LEFT_HAND:
+            return "SMPLJ_LEFT_HAND"
         else:
             return "SMPLJ_UNKNOWN"
 
@@ -84,23 +84,23 @@ SMPLJ_SPINE1 = ESMPLJoint(3)
 SMPLJ_LEFT_KNEE = ESMPLJoint(4)
 SMPLJ_RIGHT_KNEE = ESMPLJoint(5)
 SMPLJ_SPINE2 = ESMPLJoint(6)
-SMPLJ_LEFT_ANKLE = ESMPLJoint(7)
-SMPLJ_RIGHT_ANKLE = ESMPLJoint(8)
+SMPLJ_RIGHT_ANKLE = ESMPLJoint(7)
+SMPLJ_LEFT_ANKLE = ESMPLJoint(8)
 SMPLJ_SPINE3 = ESMPLJoint(9)
-SMPLJ_LEFT_FOOT = ESMPLJoint(10)
-SMPLJ_RIGHT_FOOT = ESMPLJoint(11)
+SMPLJ_RIGHT_FOOT = ESMPLJoint(10)
+SMPLJ_LEFT_FOOT = ESMPLJoint(11)
 SMPLJ_NECK = ESMPLJoint(12)
-SMPLJ_LEFT_COLLAR = ESMPLJoint(13)
-SMPLJ_RIGHT_COLLAR = ESMPLJoint(14)
+SMPLJ_RIGHT_COLLAR = ESMPLJoint(13)
+SMPLJ_LEFT_COLLAR = ESMPLJoint(14)
 SMPLJ_HEAD = ESMPLJoint(15)
-SMPLJ_LEFT_SHOULDER = ESMPLJoint(16)
-SMPLJ_RIGHT_SHOULDER = ESMPLJoint(17)
-SMPLJ_LEFT_ELBOW = ESMPLJoint(18)
-SMPLJ_RIGHT_ELBOW = ESMPLJoint(19)
-SMPLJ_LEFT_WRIST = ESMPLJoint(20)
-SMPLJ_RIGHT_WRIST = ESMPLJoint(21)
-SMPLJ_LEFT_HAND = ESMPLJoint(22)
-SMPLJ_RIGHT_HAND = ESMPLJoint(23)
+SMPLJ_RIGHT_SHOULDER = ESMPLJoint(16)
+SMPLJ_LEFT_SHOULDER = ESMPLJoint(17)
+SMPLJ_RIGHT_ELBOW = ESMPLJoint(18)
+SMPLJ_LEFT_ELBOW = ESMPLJoint(19)
+SMPLJ_RIGHT_WRIST = ESMPLJoint(20)
+SMPLJ_LEFT_WRIST = ESMPLJoint(21)
+SMPLJ_RIGHT_HAND = ESMPLJoint(22)
+SMPLJ_LEFT_HAND = ESMPLJoint(23)
 
 
 # MAIN CLASS
@@ -115,15 +115,16 @@ class SMPLBody:
         self.__model: smplx.SMPL = smplx.create(model_folder, "smpl", gender=gender)
 
         # 0 = left hip, 3 = right hip, 6 = spine1, 9 = left knee, 12 = right knee,
-        # 15 = spine2, 18 = left ankle, 21 = right ankle, 24 = spine3, 27 = left foot,
-        # 30 = right foot, 33 = neck, 36 = left collar, 39 = right collar, 42 = head,
-        # 45 = left shoulder, 48 = right shoulder, 51 = left elbow, 54 = right elbow,
-        # 57 = left wrist, 60 = right wrist, 63 = left hand, 66 = right hand
+        # 15 = spine2, 18 = right ankle, 21 = left ankle, 24 = spine3, 27 = right foot,
+        # 30 = left foot, 33 = neck, 36 = right collar, 39 = left collar, 42 = head,
+        # 45 = right shoulder, 48 = left shoulder, 51 = right elbow, 54 = left elbow,
+        # 57 = right wrist, 60 = left wrist, 63 = right hand, 66 = left hand
         self.__body_pose: np.ndarray = np.zeros(self.__model.NUM_BODY_JOINTS * 3, dtype=np.float32)
 
         self.__faces: np.ndarray = self.__model.faces
         self.__global_pose: np.ndarray = np.eye(4)
 
+        # TODO: Update this.
         # 0 = pelvis, 1 = left hip, 2 = right hip, 3 = spine1, 4 = left knee, 5 = right knee,
         # 6 = spine2, 7 = left ankle, 8 = right ankle, 9 = spine3, 10 = left foot,
         # 11 = right foot, 12 = neck, 13 = left collar, 14 = right collar, 15 = head,
@@ -202,24 +203,37 @@ class SMPLBody:
         if midhip_keypoint is None or neck_keypoint is None:
             return
 
+        joint_rotations, joint_rel_rotations = skeleton.compute_joint_rotations()
+
+        self.__set_joint_rel_rotation(SMPLJ_NECK, "Neck", joint_rel_rotations)
+        self.__set_joint_rel_rotation(SMPLJ_RIGHT_ELBOW, "RElbow", joint_rel_rotations)
+        self.__set_joint_rel_rotation(SMPLJ_RIGHT_SHOULDER, "RShoulder", joint_rel_rotations)
+
         output: smplx.utils.SMPLOutput = self.__model(
             betas=None,
             body_pose=torch.from_numpy(self.__body_pose).unsqueeze(dim=0),
-            global_orient=torch.from_numpy(np.array([math.pi, 0, 0], dtype=np.float32)).unsqueeze(dim=0),
-            # transl=torch.from_numpy(midhip_keypoint.position).unsqueeze(dim=0),
             return_verts=True
         )
 
         self.__joints = output.joints.detach().cpu().numpy().squeeze()
         self.__vertices = output.vertices.detach().cpu().numpy().squeeze()
 
-        midhip_smplj: np.ndarray = (self.__joints[SMPLJ_PELVIS] + self.__joints[SMPLJ_LEFT_HIP] + self.__joints[SMPLJ_RIGHT_HIP]) / 3
         self.__global_pose = np.eye(4)
-        self.__global_pose[0:3, 3] = midhip_keypoint.position - midhip_smplj
+        self.__global_pose = skeleton.keypoint_orienters["MidHip"].w_t_c.copy()
 
-        print(np.linalg.norm(midhip_keypoint.position - neck_keypoint.position))
-        print(np.linalg.norm(self.__joints[SMPLJ_PELVIS] - self.__joints[SMPLJ_NECK]))
-        print("===")
+        midhip_smplj: np.ndarray = (self.__joints[SMPLJ_PELVIS] + self.__joints[SMPLJ_LEFT_HIP] + self.__joints[SMPLJ_RIGHT_HIP]) / 3
+        self.__global_pose[0:3, 3] += midhip_smplj
+
+        # print(np.linalg.norm(midhip_keypoint.position - neck_keypoint.position))
+        # print(np.linalg.norm(self.__joints[SMPLJ_PELVIS] - self.__joints[SMPLJ_NECK]))
+        # print("===")
+
+    # PRIVATE METHODS
+
+    def __set_joint_rel_rotation(self, joint_id: int, joint_name: str,
+                                 joint_rel_rotations: Dict[str, np.ndarray]) -> None:
+        self.__body_pose[(joint_id - 1) * 3:joint_id * 3] = \
+            Rotation.from_matrix(joint_rel_rotations[joint_name]).as_rotvec()
 
     # PRIVATE STATIC METHODS
 
