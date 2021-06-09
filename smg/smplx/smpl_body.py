@@ -205,15 +205,15 @@ class SMPLBody:
 
         joint_rotations, joint_rel_rotations = skeleton.compute_joint_rotations()
 
-        self.__set_joint_rel_rotation(SMPLJ_LEFT_ELBOW, "RElbow", joint_rel_rotations)
-        self.__set_joint_rel_rotation(SMPLJ_LEFT_HIP, "RHip", joint_rel_rotations)
+        self.__set_joint_rel_rotation(SMPLJ_LEFT_ELBOW, "LElbow", joint_rel_rotations)
+        self.__set_joint_rel_rotation(SMPLJ_LEFT_HIP, "LHip", joint_rel_rotations)
         self.__set_joint_rel_rotation(SMPLJ_LEFT_KNEE, "LKnee", joint_rel_rotations)
-        self.__set_joint_rel_rotation(SMPLJ_LEFT_SHOULDER, "RShoulder", joint_rel_rotations)
+        self.__set_joint_rel_rotation(SMPLJ_LEFT_SHOULDER, "LShoulder", joint_rel_rotations)
         self.__set_joint_rel_rotation(SMPLJ_NECK, "Neck", joint_rel_rotations)
-        self.__set_joint_rel_rotation(SMPLJ_RIGHT_ELBOW, "LElbow", joint_rel_rotations)
-        self.__set_joint_rel_rotation(SMPLJ_RIGHT_HIP, "LHip", joint_rel_rotations)
+        self.__set_joint_rel_rotation(SMPLJ_RIGHT_ELBOW, "RElbow", joint_rel_rotations)
+        self.__set_joint_rel_rotation(SMPLJ_RIGHT_HIP, "RHip", joint_rel_rotations)
         self.__set_joint_rel_rotation(SMPLJ_RIGHT_KNEE, "RKnee", joint_rel_rotations)
-        self.__set_joint_rel_rotation(SMPLJ_RIGHT_SHOULDER, "LShoulder", joint_rel_rotations)
+        self.__set_joint_rel_rotation(SMPLJ_RIGHT_SHOULDER, "RShoulder", joint_rel_rotations)
 
         # self.__body_pose[(SMPLJ_LEFT_ELBOW - 1) * 3:SMPLJ_LEFT_ELBOW * 3] = np.array([0, 0, math.pi / 4])
         # self.__body_pose[(SMPLJ_LEFT_SHOULDER - 1) * 3:SMPLJ_LEFT_SHOULDER * 3] = np.array([0, 0, math.pi / 4])
