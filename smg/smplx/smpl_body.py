@@ -1,4 +1,3 @@
-import math
 import numpy as np
 import smplx
 import smplx.utils
@@ -25,6 +24,7 @@ class ESMPLJoint(int):
 
         :return:    A string representation of an SMPL joint identifier.
         """
+        # TODO: Reorder these.
         if self == SMPLJ_PELVIS:
             return "SMPLJ_PELVIS"
         elif self == SMPLJ_LEFT_HIP:
@@ -114,6 +114,7 @@ class SMPLBody:
         # noinspection PyTypeChecker
         self.__model: smplx.SMPL = smplx.create(model_folder, "smpl", gender=gender)
 
+        # TODO: Update this.
         # 0 = left hip, 3 = right hip, 6 = spine1, 9 = left knee, 12 = right knee,
         # 15 = spine2, 18 = right ankle, 21 = left ankle, 24 = spine3, 27 = right foot,
         # 30 = left foot, 33 = neck, 36 = right collar, 39 = left collar, 42 = head,
@@ -194,8 +195,8 @@ class SMPLBody:
             # Render the joints.
             glColor3f(1.0, 0.0, 1.0)
 
-            # for i in range(24):
-            #     OpenGLUtil.render_sphere(self.__joints[i], 0.02, slices=10, stacks=10)
+            for i in range(24):
+                OpenGLUtil.render_sphere(self.__joints[i], 0.02, slices=10, stacks=10)
 
     def set_from_skeleton(self, skeleton: Skeleton) -> None:
         midhip_keypoint: Optional[Skeleton.Keypoint] = skeleton.keypoints.get("MidHip")
@@ -203,22 +204,17 @@ class SMPLBody:
         if midhip_keypoint is None or neck_keypoint is None:
             return
 
-        joint_rotations, joint_rel_rotations = skeleton.compute_joint_rotations()
+        local_joint_rotations: Dict[str, np.ndarray] = skeleton.compute_joint_rotations()
 
-        self.__set_joint_rel_rotation(SMPLJ_LEFT_ELBOW, "LElbow", joint_rel_rotations)
-        self.__set_joint_rel_rotation(SMPLJ_LEFT_HIP, "LHip", joint_rel_rotations)
-        self.__set_joint_rel_rotation(SMPLJ_LEFT_KNEE, "LKnee", joint_rel_rotations)
-        self.__set_joint_rel_rotation(SMPLJ_LEFT_SHOULDER, "LShoulder", joint_rel_rotations)
-        self.__set_joint_rel_rotation(SMPLJ_NECK, "Neck", joint_rel_rotations)
-        self.__set_joint_rel_rotation(SMPLJ_RIGHT_ELBOW, "RElbow", joint_rel_rotations)
-        self.__set_joint_rel_rotation(SMPLJ_RIGHT_HIP, "RHip", joint_rel_rotations)
-        self.__set_joint_rel_rotation(SMPLJ_RIGHT_KNEE, "RKnee", joint_rel_rotations)
-        self.__set_joint_rel_rotation(SMPLJ_RIGHT_SHOULDER, "RShoulder", joint_rel_rotations)
-
-        # self.__body_pose[(SMPLJ_LEFT_ELBOW - 1) * 3:SMPLJ_LEFT_ELBOW * 3] = np.array([0, 0, math.pi / 4])
-        # self.__body_pose[(SMPLJ_LEFT_SHOULDER - 1) * 3:SMPLJ_LEFT_SHOULDER * 3] = np.array([0, 0, math.pi / 4])
-        # self.__body_pose[(SMPLJ_NECK - 1) * 3:SMPLJ_NECK * 3] = np.array([0, 0, math.pi / 4])
-        # self.__body_pose[(SMPLJ_RIGHT_SHOULDER - 1) * 3:SMPLJ_RIGHT_SHOULDER * 3] = np.array([0, 0, -math.pi/4])
+        self.__apply_local_joint_rotation(SMPLJ_LEFT_ELBOW, "LElbow", local_joint_rotations)
+        self.__apply_local_joint_rotation(SMPLJ_LEFT_HIP, "LHip", local_joint_rotations)
+        self.__apply_local_joint_rotation(SMPLJ_LEFT_KNEE, "LKnee", local_joint_rotations)
+        self.__apply_local_joint_rotation(SMPLJ_LEFT_SHOULDER, "LShoulder", local_joint_rotations)
+        self.__apply_local_joint_rotation(SMPLJ_NECK, "Neck", local_joint_rotations)
+        self.__apply_local_joint_rotation(SMPLJ_RIGHT_ELBOW, "RElbow", local_joint_rotations)
+        self.__apply_local_joint_rotation(SMPLJ_RIGHT_HIP, "RHip", local_joint_rotations)
+        self.__apply_local_joint_rotation(SMPLJ_RIGHT_KNEE, "RKnee", local_joint_rotations)
+        self.__apply_local_joint_rotation(SMPLJ_RIGHT_SHOULDER, "RShoulder", local_joint_rotations)
 
         output: smplx.utils.SMPLOutput = self.__model(
             betas=None,
@@ -241,13 +237,10 @@ class SMPLBody:
 
     # PRIVATE METHODS
 
-    def __set_joint_rel_rotation(self, joint_id: int, joint_name: str,
-                                 joint_rel_rotations: Dict[str, np.ndarray]) -> None:
-        # rot = Rotation.from_matrix(joint_rel_rotations[joint_name]).as_rotvec()
-        # import vg
-        # print(joint_id, joint_name, vg.normalize(rot), np.linalg.norm(rot))
-        rot = Rotation.from_matrix(joint_rel_rotations[joint_name]).as_rotvec()
-        self.__body_pose[(joint_id - 1) * 3:joint_id * 3] = rot
+    def __apply_local_joint_rotation(self, joint_id: int, joint_name: str,
+                                     local_joint_rotations: Dict[str, np.ndarray]) -> None:
+        self.__body_pose[(joint_id - 1) * 3 : joint_id * 3] = \
+            Rotation.from_matrix(local_joint_rotations[joint_name]).as_rotvec()
 
     # PRIVATE STATIC METHODS
 
