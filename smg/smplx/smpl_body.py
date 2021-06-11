@@ -5,7 +5,7 @@ import torch
 
 from OpenGL.GL import *
 from scipy.spatial.transform import Rotation
-from typing import Dict, Optional
+from typing import Optional
 
 from smg.opengl import OpenGLMatrixContext, OpenGLUtil
 from smg.skeletons import Skeleton
@@ -20,11 +20,10 @@ class ESMPLJoint(int):
 
     def __str__(self) -> str:
         """
-        Get a string representation of an SMPL joint identifier.
+        Get an informal string representation of an SMPL joint identifier.
 
-        :return:    A string representation of an SMPL joint identifier.
+        :return:    An informal string representation of an SMPL joint identifier.
         """
-        # TODO: Reorder these.
         if self == SMPLJ_PELVIS:
             return "SMPLJ_PELVIS"
         elif self == SMPLJ_LEFT_HIP:
@@ -39,40 +38,40 @@ class ESMPLJoint(int):
             return "SMPLJ_RIGHT_KNEE"
         elif self == SMPLJ_SPINE2:
             return "SMPLJ_SPINE2"
-        elif self == SMPLJ_RIGHT_ANKLE:
-            return "SMPLJ_RIGHT_ANKLE"
         elif self == SMPLJ_LEFT_ANKLE:
             return "SMPLJ_LEFT_ANKLE"
+        elif self == SMPLJ_RIGHT_ANKLE:
+            return "SMPLJ_RIGHT_ANKLE"
         elif self == SMPLJ_SPINE3:
             return "SMPLJ_SPINE3"
-        elif self == SMPLJ_RIGHT_FOOT:
-            return "SMPLJ_RIGHT_FOOT"
         elif self == SMPLJ_LEFT_FOOT:
             return "SMPLJ_LEFT_FOOT"
+        elif self == SMPLJ_RIGHT_FOOT:
+            return "SMPLJ_RIGHT_FOOT"
         elif self == SMPLJ_NECK:
             return "SMPLJ_NECK"
-        elif self == SMPLJ_RIGHT_COLLAR:
-            return "SMPLJ_RIGHT_COLLAR"
         elif self == SMPLJ_LEFT_COLLAR:
             return "SMPLJ_LEFT_COLLAR"
+        elif self == SMPLJ_RIGHT_COLLAR:
+            return "SMPLJ_RIGHT_COLLAR"
         elif self == SMPLJ_HEAD:
             return "SMPLJ_HEAD"
-        elif self == SMPLJ_RIGHT_SHOULDER:
-            return "SMPLJ_RIGHT_SHOULDER"
         elif self == SMPLJ_LEFT_SHOULDER:
             return "SMPLJ_LEFT_SHOULDER"
-        elif self == SMPLJ_RIGHT_ELBOW:
-            return "SMPLJ_RIGHT_ELBOW"
+        elif self == SMPLJ_RIGHT_SHOULDER:
+            return "SMPLJ_RIGHT_SHOULDER"
         elif self == SMPLJ_LEFT_ELBOW:
             return "SMPLJ_LEFT_ELBOW"
-        elif self == SMPLJ_RIGHT_WRIST:
-            return "SMPLJ_RIGHT_WRIST"
+        elif self == SMPLJ_RIGHT_ELBOW:
+            return "SMPLJ_RIGHT_ELBOW"
         elif self == SMPLJ_LEFT_WRIST:
             return "SMPLJ_LEFT_WRIST"
-        elif self == SMPLJ_RIGHT_HAND:
-            return "SMPLJ_RIGHT_HAND"
+        elif self == SMPLJ_RIGHT_WRIST:
+            return "SMPLJ_RIGHT_WRIST"
         elif self == SMPLJ_LEFT_HAND:
             return "SMPLJ_LEFT_HAND"
+        elif self == SMPLJ_RIGHT_HAND:
+            return "SMPLJ_RIGHT_HAND"
         else:
             return "SMPLJ_UNKNOWN"
 
@@ -114,25 +113,14 @@ class SMPLBody:
         # noinspection PyTypeChecker
         self.__model: smplx.SMPL = smplx.create(model_folder, "smpl", gender=gender)
 
-        # TODO: Update this.
-        # 0 = left hip, 3 = right hip, 6 = spine1, 9 = left knee, 12 = right knee,
-        # 15 = spine2, 18 = right ankle, 21 = left ankle, 24 = spine3, 27 = right foot,
-        # 30 = left foot, 33 = neck, 36 = right collar, 39 = left collar, 42 = head,
-        # 45 = right shoulder, 48 = left shoulder, 51 = right elbow, 54 = left elbow,
-        # 57 = right wrist, 60 = left wrist, 63 = right hand, 66 = left hand
+        # 0:3 = left hip, 3:6 = right hip, etc. (see enumeration values above)
         self.__body_pose: np.ndarray = np.zeros(self.__model.NUM_BODY_JOINTS * 3, dtype=np.float32)
+
+        # 0 = pelvis, 1 = left hip, etc. (see enumeration values above)
+        self.__joints: Optional[np.ndarray] = None
 
         self.__faces: np.ndarray = self.__model.faces
         self.__global_pose: np.ndarray = np.eye(4)
-
-        # TODO: Update this.
-        # 0 = pelvis, 1 = left hip, 2 = right hip, 3 = spine1, 4 = left knee, 5 = right knee,
-        # 6 = spine2, 7 = left ankle, 8 = right ankle, 9 = spine3, 10 = left foot,
-        # 11 = right foot, 12 = neck, 13 = left collar, 14 = right collar, 15 = head,
-        # 16 = left shoulder, 17 = right shoulder, 18 = left elbow, 19 = right elbow,
-        # 20 = left wrist, 21 = right wrist, 22 = left hand, 23 = right hand
-        self.__joints: Optional[np.ndarray] = None
-
         self.__vertices: Optional[np.ndarray] = None
 
     # PUBLIC METHODS
@@ -173,64 +161,84 @@ class SMPLBody:
         face_vertex_normals: np.ndarray = vertex_normals[self.__faces]
 
         # ~~~
-        # Step 2: Render the body.
+        # Step 2: Render the mesh.
         # ~~~
         with OpenGLMatrixContext(GL_MODELVIEW, lambda: OpenGLUtil.mult_matrix(self.__global_pose)):
-            # Render the mesh.
             glColor3f(0.7, 0.7, 0.7)
 
             glPushClientAttrib(GL_CLIENT_VERTEX_ARRAY_BIT)
-
             glEnableClientState(GL_VERTEX_ARRAY)
             glEnableClientState(GL_NORMAL_ARRAY)
             glVertexPointer(3, GL_FLOAT, 0, face_vertices)
             glNormalPointer(GL_FLOAT, 0, face_vertex_normals)
 
-            glPolygonMode(GL_FRONT_AND_BACK, GL_LINE)
             glDrawArrays(GL_TRIANGLES, 0, len(face_vertices) * 3)
-            glPolygonMode(GL_FRONT_AND_BACK, GL_FILL)
 
             glPopClientAttrib()
 
-            # Render the joints.
-            glColor3f(1.0, 0.0, 1.0)
-
-            for i in range(24):
-                OpenGLUtil.render_sphere(self.__joints[i], 0.02, slices=10, stacks=10)
-
     def render_from_skeleton(self, skeleton: Skeleton) -> None:
+        """
+        Set the pose of the body based on the specified skeleton and then render the body.
+
+        :param skeleton:    The skeleton upon which to base the pose of the body.
+        """
         self.set_from_skeleton(skeleton)
         self.render()
 
-    def set_from_skeleton(self, skeleton: Skeleton) -> None:
-        self.__apply_local_joint_rotation(SMPLJ_LEFT_ELBOW, "LElbow", skeleton)
-        self.__apply_local_joint_rotation(SMPLJ_LEFT_HIP, "LHip", skeleton)
-        self.__apply_local_joint_rotation(SMPLJ_LEFT_KNEE, "LKnee", skeleton)
-        self.__apply_local_joint_rotation(SMPLJ_LEFT_SHOULDER, "LShoulder", skeleton)
-        self.__apply_local_joint_rotation(SMPLJ_NECK, "Neck", skeleton)
-        self.__apply_local_joint_rotation(SMPLJ_RIGHT_ELBOW, "RElbow", skeleton)
-        self.__apply_local_joint_rotation(SMPLJ_RIGHT_HIP, "RHip", skeleton)
-        self.__apply_local_joint_rotation(SMPLJ_RIGHT_KNEE, "RKnee", skeleton)
-        self.__apply_local_joint_rotation(SMPLJ_RIGHT_SHOULDER, "RShoulder", skeleton)
+    def render_joints(self) -> None:
+        """Render the body's joints (e.g. for debugging purposes)."""
+        with OpenGLMatrixContext(GL_MODELVIEW, lambda: OpenGLUtil.mult_matrix(self.__global_pose)):
+            glColor3f(1.0, 0.0, 1.0)
+            for i in range(24):
+                OpenGLUtil.render_sphere(self.__joints[i], 0.02, slices=10, stacks=10)
 
+    def set_from_skeleton(self, skeleton: Skeleton) -> None:
+        """
+        Set the pose of the body based on the specified skeleton.
+
+        :param skeleton:    The skeleton upon which to base the pose of the body.
+        """
+        # Apply the local rotations from the skeleton's joints to the joints of the body.
+        self.__apply_local_joint_rotation(skeleton, "LElbow", SMPLJ_LEFT_ELBOW)
+        self.__apply_local_joint_rotation(skeleton, "LHip", SMPLJ_LEFT_HIP)
+        self.__apply_local_joint_rotation(skeleton, "LKnee", SMPLJ_LEFT_KNEE)
+        self.__apply_local_joint_rotation(skeleton, "LShoulder", SMPLJ_LEFT_SHOULDER)
+        self.__apply_local_joint_rotation(skeleton, "Neck", SMPLJ_NECK)
+        self.__apply_local_joint_rotation(skeleton, "RElbow", SMPLJ_RIGHT_ELBOW)
+        self.__apply_local_joint_rotation(skeleton, "RHip", SMPLJ_RIGHT_HIP)
+        self.__apply_local_joint_rotation(skeleton, "RKnee", SMPLJ_RIGHT_KNEE)
+        self.__apply_local_joint_rotation(skeleton, "RShoulder", SMPLJ_RIGHT_SHOULDER)
+
+        # Run the body model to update the mesh and the global joint positions.
         output: smplx.utils.SMPLOutput = self.__model(
             betas=None,
             body_pose=torch.from_numpy(self.__body_pose).unsqueeze(dim=0),
             return_verts=True
         )
 
-        self.__joints = output.joints.detach().cpu().numpy().squeeze()
+        # Get the updated mesh vertices and global joint positions.
         self.__vertices = output.vertices.detach().cpu().numpy().squeeze()
+        self.__joints = output.joints.detach().cpu().numpy().squeeze()
 
+        # TODO: Fix how this is obtained.
         self.__global_pose = skeleton.keypoint_orienters["MidHip"].w_t_c.copy()
 
-        midhip_smplj: np.ndarray = (self.__joints[SMPLJ_PELVIS] + self.__joints[SMPLJ_LEFT_HIP] + self.__joints[SMPLJ_RIGHT_HIP]) / 3
+        # TODO
+        midhip_smplj: np.ndarray = \
+            (self.__joints[SMPLJ_PELVIS] + self.__joints[SMPLJ_LEFT_HIP] + self.__joints[SMPLJ_RIGHT_HIP]) / 3
         self.__global_pose[0:3, 3] += midhip_smplj
 
     # PRIVATE METHODS
 
-    def __apply_local_joint_rotation(self, joint_id: int, joint_name: str, skeleton: Skeleton) -> None:
-        self.__body_pose[(joint_id - 1) * 3 : joint_id * 3] = \
+    def __apply_local_joint_rotation(self, skeleton: Skeleton, joint_name: str, joint_id: int) -> None:
+        """
+        Apply the specified local joint rotation from a skeleton to the specified joint in the SMPL body model.
+
+        :param skeleton:    The skeleton.
+        :param joint_name:  The name of the joint in the skeleton whose local rotation we want to use.
+        :param joint_id:    The name of the joint in the SMPL body model whose local rotation we want to set.
+        """
+        self.__body_pose[(joint_id - 1) * 3:joint_id * 3] = \
             Rotation.from_matrix(skeleton.local_joint_rotations[joint_name]).as_rotvec()
 
     # PRIVATE STATIC METHODS
