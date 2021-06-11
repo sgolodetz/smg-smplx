@@ -198,6 +198,10 @@ class SMPLBody:
             for i in range(24):
                 OpenGLUtil.render_sphere(self.__joints[i], 0.02, slices=10, stacks=10)
 
+    def render_from_skeleton(self, skeleton: Skeleton) -> None:
+        self.set_from_skeleton(skeleton)
+        self.render()
+
     def set_from_skeleton(self, skeleton: Skeleton) -> None:
         self.__apply_local_joint_rotation(SMPLJ_LEFT_ELBOW, "LElbow", skeleton)
         self.__apply_local_joint_rotation(SMPLJ_LEFT_HIP, "LHip", skeleton)
