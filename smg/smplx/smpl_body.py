@@ -199,22 +199,15 @@ class SMPLBody:
                 OpenGLUtil.render_sphere(self.__joints[i], 0.02, slices=10, stacks=10)
 
     def set_from_skeleton(self, skeleton: Skeleton) -> None:
-        midhip_keypoint: Optional[Skeleton.Keypoint] = skeleton.keypoints.get("MidHip")
-        neck_keypoint: Optional[Skeleton.Keypoint] = skeleton.keypoints.get("Neck")
-        if midhip_keypoint is None or neck_keypoint is None:
-            return
-
-        local_joint_rotations: Dict[str, np.ndarray] = skeleton.compute_joint_rotations()
-
-        self.__apply_local_joint_rotation(SMPLJ_LEFT_ELBOW, "LElbow", local_joint_rotations)
-        self.__apply_local_joint_rotation(SMPLJ_LEFT_HIP, "LHip", local_joint_rotations)
-        self.__apply_local_joint_rotation(SMPLJ_LEFT_KNEE, "LKnee", local_joint_rotations)
-        self.__apply_local_joint_rotation(SMPLJ_LEFT_SHOULDER, "LShoulder", local_joint_rotations)
-        self.__apply_local_joint_rotation(SMPLJ_NECK, "Neck", local_joint_rotations)
-        self.__apply_local_joint_rotation(SMPLJ_RIGHT_ELBOW, "RElbow", local_joint_rotations)
-        self.__apply_local_joint_rotation(SMPLJ_RIGHT_HIP, "RHip", local_joint_rotations)
-        self.__apply_local_joint_rotation(SMPLJ_RIGHT_KNEE, "RKnee", local_joint_rotations)
-        self.__apply_local_joint_rotation(SMPLJ_RIGHT_SHOULDER, "RShoulder", local_joint_rotations)
+        self.__apply_local_joint_rotation(SMPLJ_LEFT_ELBOW, "LElbow", skeleton)
+        self.__apply_local_joint_rotation(SMPLJ_LEFT_HIP, "LHip", skeleton)
+        self.__apply_local_joint_rotation(SMPLJ_LEFT_KNEE, "LKnee", skeleton)
+        self.__apply_local_joint_rotation(SMPLJ_LEFT_SHOULDER, "LShoulder", skeleton)
+        self.__apply_local_joint_rotation(SMPLJ_NECK, "Neck", skeleton)
+        self.__apply_local_joint_rotation(SMPLJ_RIGHT_ELBOW, "RElbow", skeleton)
+        self.__apply_local_joint_rotation(SMPLJ_RIGHT_HIP, "RHip", skeleton)
+        self.__apply_local_joint_rotation(SMPLJ_RIGHT_KNEE, "RKnee", skeleton)
+        self.__apply_local_joint_rotation(SMPLJ_RIGHT_SHOULDER, "RShoulder", skeleton)
 
         output: smplx.utils.SMPLOutput = self.__model(
             betas=None,
@@ -225,22 +218,16 @@ class SMPLBody:
         self.__joints = output.joints.detach().cpu().numpy().squeeze()
         self.__vertices = output.vertices.detach().cpu().numpy().squeeze()
 
-        self.__global_pose = np.eye(4)
         self.__global_pose = skeleton.keypoint_orienters["MidHip"].w_t_c.copy()
 
         midhip_smplj: np.ndarray = (self.__joints[SMPLJ_PELVIS] + self.__joints[SMPLJ_LEFT_HIP] + self.__joints[SMPLJ_RIGHT_HIP]) / 3
         self.__global_pose[0:3, 3] += midhip_smplj
 
-        # print(np.linalg.norm(midhip_keypoint.position - neck_keypoint.position))
-        # print(np.linalg.norm(self.__joints[SMPLJ_PELVIS] - self.__joints[SMPLJ_NECK]))
-        # print("===")
-
     # PRIVATE METHODS
 
-    def __apply_local_joint_rotation(self, joint_id: int, joint_name: str,
-                                     local_joint_rotations: Dict[str, np.ndarray]) -> None:
+    def __apply_local_joint_rotation(self, joint_id: int, joint_name: str, skeleton: Skeleton) -> None:
         self.__body_pose[(joint_id - 1) * 3 : joint_id * 3] = \
-            Rotation.from_matrix(local_joint_rotations[joint_name]).as_rotvec()
+            Rotation.from_matrix(skeleton.local_joint_rotations[joint_name]).as_rotvec()
 
     # PRIVATE STATIC METHODS
 
