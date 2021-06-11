@@ -198,16 +198,21 @@ class SMPLBody:
 
         :param skeleton:    The skeleton upon which to base the pose of the body.
         """
-        # Apply the local rotations from the skeleton's joints to the joints of the body.
-        self.__apply_local_joint_rotation(skeleton, "LElbow", SMPLJ_LEFT_ELBOW)
-        self.__apply_local_joint_rotation(skeleton, "LHip", SMPLJ_LEFT_HIP)
-        self.__apply_local_joint_rotation(skeleton, "LKnee", SMPLJ_LEFT_KNEE)
-        self.__apply_local_joint_rotation(skeleton, "LShoulder", SMPLJ_LEFT_SHOULDER)
-        self.__apply_local_joint_rotation(skeleton, "Neck", SMPLJ_NECK)
-        self.__apply_local_joint_rotation(skeleton, "RElbow", SMPLJ_RIGHT_ELBOW)
-        self.__apply_local_joint_rotation(skeleton, "RHip", SMPLJ_RIGHT_HIP)
-        self.__apply_local_joint_rotation(skeleton, "RKnee", SMPLJ_RIGHT_KNEE)
-        self.__apply_local_joint_rotation(skeleton, "RShoulder", SMPLJ_RIGHT_SHOULDER)
+        # Try to get the global pose of the skeleton's MidHip joint. If this isn't possible, early out.
+        midhip_w_t_c: Optional[np.ndarray] = skeleton.global_keypoint_poses.get("MidHip")
+        if midhip_w_t_c is None:
+            return
+
+        # Apply the local rotations from the skeleton's keypoint to the joints of the SMPL body.
+        self.__apply_local_keypoint_rotation(skeleton, "LElbow", SMPLJ_LEFT_ELBOW)
+        self.__apply_local_keypoint_rotation(skeleton, "LHip", SMPLJ_LEFT_HIP)
+        self.__apply_local_keypoint_rotation(skeleton, "LKnee", SMPLJ_LEFT_KNEE)
+        self.__apply_local_keypoint_rotation(skeleton, "LShoulder", SMPLJ_LEFT_SHOULDER)
+        self.__apply_local_keypoint_rotation(skeleton, "Neck", SMPLJ_NECK)
+        self.__apply_local_keypoint_rotation(skeleton, "RElbow", SMPLJ_RIGHT_ELBOW)
+        self.__apply_local_keypoint_rotation(skeleton, "RHip", SMPLJ_RIGHT_HIP)
+        self.__apply_local_keypoint_rotation(skeleton, "RKnee", SMPLJ_RIGHT_KNEE)
+        self.__apply_local_keypoint_rotation(skeleton, "RShoulder", SMPLJ_RIGHT_SHOULDER)
 
         # Run the body model to update the mesh and the global joint positions.
         output: smplx.utils.SMPLOutput = self.__model(
@@ -220,26 +225,24 @@ class SMPLBody:
         self.__vertices = output.vertices.detach().cpu().numpy().squeeze()
         self.__joints = output.joints.detach().cpu().numpy().squeeze()
 
-        # TODO: Fix how this is obtained.
-        self.__global_pose = skeleton.keypoint_orienters["MidHip"].w_t_c.copy()
-
-        # TODO
+        # Calculate a global pose for the body.
+        self.__global_pose = midhip_w_t_c.copy()
         midhip_smplj: np.ndarray = \
             (self.__joints[SMPLJ_PELVIS] + self.__joints[SMPLJ_LEFT_HIP] + self.__joints[SMPLJ_RIGHT_HIP]) / 3
         self.__global_pose[0:3, 3] += midhip_smplj
 
     # PRIVATE METHODS
 
-    def __apply_local_joint_rotation(self, skeleton: Skeleton, joint_name: str, joint_id: int) -> None:
+    def __apply_local_keypoint_rotation(self, skeleton: Skeleton, keypoint_name: str, joint_id: int) -> None:
         """
-        Apply the specified local joint rotation from a skeleton to the specified joint in the SMPL body model.
+        Apply the specified local keypoint rotation from a skeleton to the specified joint in the SMPL body model.
 
-        :param skeleton:    The skeleton.
-        :param joint_name:  The name of the joint in the skeleton whose local rotation we want to use.
-        :param joint_id:    The name of the joint in the SMPL body model whose local rotation we want to set.
+        :param skeleton:        The skeleton.
+        :param keypoint_name:   The name of the keypoint in the skeleton whose local rotation we want to use.
+        :param joint_id:        The ID of the joint in the SMPL body model whose local rotation we want to set.
         """
         self.__body_pose[(joint_id - 1) * 3:joint_id * 3] = \
-            Rotation.from_matrix(skeleton.local_joint_rotations[joint_name]).as_rotvec()
+            Rotation.from_matrix(skeleton.local_keypoint_rotations[keypoint_name]).as_rotvec()
 
     # PRIVATE STATIC METHODS
 
