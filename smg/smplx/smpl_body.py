@@ -8,7 +8,7 @@ from scipy.spatial.transform import Rotation
 from typing import Optional
 
 from smg.opengl import OpenGLMatrixContext, OpenGLUtil
-from smg.skeletons import Skeleton
+from smg.skeletons import Skeleton3D
 
 
 # HELPER ENUMERATIONS
@@ -176,7 +176,7 @@ class SMPLBody:
 
             glPopClientAttrib()
 
-    def render_from_skeleton(self, skeleton: Skeleton) -> None:
+    def render_from_skeleton(self, skeleton: Skeleton3D) -> None:
         """
         Set the pose of the body based on the specified skeleton and then render the body.
 
@@ -192,7 +192,7 @@ class SMPLBody:
             for i in range(24):
                 OpenGLUtil.render_sphere(self.__joints[i], 0.02, slices=10, stacks=10)
 
-    def set_from_skeleton(self, skeleton: Skeleton) -> None:
+    def set_from_skeleton(self, skeleton: Skeleton3D) -> None:
         """
         Set the pose of the body based on the specified skeleton.
 
@@ -233,7 +233,7 @@ class SMPLBody:
 
     # PRIVATE METHODS
 
-    def __apply_local_keypoint_rotation(self, skeleton: Skeleton, keypoint_name: str, joint_id: int) -> None:
+    def __apply_local_keypoint_rotation(self, skeleton: Skeleton3D, keypoint_name: str, joint_id: int) -> None:
         """
         Apply the specified local keypoint rotation from a skeleton to the specified joint in the SMPL body model.
 
