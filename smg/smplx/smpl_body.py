@@ -105,11 +105,17 @@ SMPLJ_RIGHT_HAND = ESMPLJoint(23)
 # MAIN CLASS
 
 class SMPLBody:
-    """An SMPL body model."""
+    """An SMPL body."""
 
     # CONSTRUCTOR
 
     def __init__(self, gender: str, *, model_folder: str = "D:/smplx/models"):
+        """
+        Construct an SMPL body.
+
+        :param gender:          The gender of the SMPL body model to load.
+        :param model_folder:    The folder containing the SMPL body models.
+        """
         # noinspection PyTypeChecker
         self.__model: smplx.SMPL = smplx.create(model_folder, "smpl", gender=gender)
 
@@ -203,16 +209,16 @@ class SMPLBody:
         if midhip_w_t_c is None:
             return
 
-        # Apply the local rotations from the skeleton's keypoint to the joints of the SMPL body.
-        self.__apply_local_keypoint_rotation(skeleton, "LElbow", SMPLJ_LEFT_ELBOW)
-        self.__apply_local_keypoint_rotation(skeleton, "LHip", SMPLJ_LEFT_HIP)
-        self.__apply_local_keypoint_rotation(skeleton, "LKnee", SMPLJ_LEFT_KNEE)
-        self.__apply_local_keypoint_rotation(skeleton, "LShoulder", SMPLJ_LEFT_SHOULDER)
-        self.__apply_local_keypoint_rotation(skeleton, "Neck", SMPLJ_NECK)
-        self.__apply_local_keypoint_rotation(skeleton, "RElbow", SMPLJ_RIGHT_ELBOW)
-        self.__apply_local_keypoint_rotation(skeleton, "RHip", SMPLJ_RIGHT_HIP)
-        self.__apply_local_keypoint_rotation(skeleton, "RKnee", SMPLJ_RIGHT_KNEE)
-        self.__apply_local_keypoint_rotation(skeleton, "RShoulder", SMPLJ_RIGHT_SHOULDER)
+        # Try to apply the local rotations from the skeleton's keypoints to the joints of the SMPL body.
+        self.__try_apply_local_keypoint_rotation(skeleton, "LElbow", SMPLJ_LEFT_ELBOW)
+        self.__try_apply_local_keypoint_rotation(skeleton, "LHip", SMPLJ_LEFT_HIP)
+        self.__try_apply_local_keypoint_rotation(skeleton, "LKnee", SMPLJ_LEFT_KNEE)
+        self.__try_apply_local_keypoint_rotation(skeleton, "LShoulder", SMPLJ_LEFT_SHOULDER)
+        self.__try_apply_local_keypoint_rotation(skeleton, "Neck", SMPLJ_NECK)
+        self.__try_apply_local_keypoint_rotation(skeleton, "RElbow", SMPLJ_RIGHT_ELBOW)
+        self.__try_apply_local_keypoint_rotation(skeleton, "RHip", SMPLJ_RIGHT_HIP)
+        self.__try_apply_local_keypoint_rotation(skeleton, "RKnee", SMPLJ_RIGHT_KNEE)
+        self.__try_apply_local_keypoint_rotation(skeleton, "RShoulder", SMPLJ_RIGHT_SHOULDER)
 
         # Run the body model to update the mesh and the global joint positions.
         output: smplx.utils.SMPLOutput = self.__model(
@@ -233,16 +239,22 @@ class SMPLBody:
 
     # PRIVATE METHODS
 
-    def __apply_local_keypoint_rotation(self, skeleton: Skeleton3D, keypoint_name: str, joint_id: int) -> None:
+    def __try_apply_local_keypoint_rotation(self, skeleton: Skeleton3D, keypoint_name: str, joint_id: int) -> None:
         """
-        Apply the specified local keypoint rotation from a skeleton to the specified joint in the SMPL body model.
+        Try to apply the specified local keypoint rotation from a skeleton to the specified joint in the
+        SMPL body model.
+
+        .. note::
+            If the local keypoint rotation can't be provided by the skeleton, for whatever reason, this is a no-op.
 
         :param skeleton:        The skeleton.
         :param keypoint_name:   The name of the keypoint in the skeleton whose local rotation we want to use.
         :param joint_id:        The ID of the joint in the SMPL body model whose local rotation we want to set.
         """
-        self.__body_pose[(joint_id - 1) * 3:joint_id * 3] = \
-            Rotation.from_matrix(skeleton.local_keypoint_rotations[keypoint_name]).as_rotvec()
+        local_keypoint_rotation: Optional[np.ndarray] = skeleton.local_keypoint_rotations.get(keypoint_name)
+        if local_keypoint_rotation is not None:
+            self.__body_pose[(joint_id - 1) * 3:joint_id * 3] = \
+                Rotation.from_matrix(local_keypoint_rotation).as_rotvec()
 
     # PRIVATE STATIC METHODS
 
