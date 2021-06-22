@@ -129,6 +129,17 @@ class SMPLBody:
         self.__global_pose: np.ndarray = np.eye(4)
         self.__vertices: Optional[np.ndarray] = None
 
+    # PROPERTIES
+
+    @property
+    def body_pose(self) -> np.ndarray:
+        """
+        TODO
+
+        :return:    TODO
+        """
+        return self.__body_pose
+
     # PUBLIC METHODS
 
     def render(self) -> None:
@@ -205,7 +216,7 @@ class SMPLBody:
             for i in range(24):
                 OpenGLUtil.render_sphere(self.__joints[i], 0.02, slices=10, stacks=10)
 
-    def set(self, *, body_pose: np.ndarray, midhip_w_t_c: np.ndarray) -> None:
+    def set(self, body_pose: np.ndarray, midhip_w_t_c: np.ndarray) -> None:
         """
         Set the pose of the body.
 
