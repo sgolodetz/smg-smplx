@@ -1,3 +1,4 @@
+import cv2
 import numpy as np
 import smplx
 import smplx.utils
@@ -7,7 +8,7 @@ from OpenGL.GL import *
 from scipy.spatial.transform import Rotation
 from typing import Optional
 
-from smg.opengl import OpenGLMatrixContext, OpenGLUtil
+from smg.opengl import OpenGLMatrixContext, OpenGLTexture, OpenGLTextureContext, OpenGLUtil
 from smg.skeletons import Skeleton3D
 
 
@@ -109,16 +110,22 @@ class SMPLBody:
 
     # CONSTRUCTOR
 
-    def __init__(self, gender: str, *, model_folder: str = "D:/smplx/models"):
+    def __init__(self, gender: str, *, model_folder: str = "D:/smplx/models",
+                 texture_coords_filename: Optional[str] = None,
+                 texture_image_filename: Optional[str] = None):
         """
         Construct an SMPL body.
 
-        :param gender:          The gender of the SMPL body model to load.
-        :param model_folder:    The folder containing the SMPL body models.
+        :param gender:                  The gender of the SMPL body model to load.
+        :param model_folder:            The folder containing the SMPL body models.
+        :param texture_coords_filename: The name of the file containing the UV coordinates for the texture (optional).
+        :param texture_image_filename:  The name of the file containing the image for the texture (optional).
         """
+        # Load the SMPL body model.
         # noinspection PyTypeChecker
         self.__model: smplx.SMPL = smplx.create(model_folder, "smpl", gender=gender)
 
+        # Set up the internal arrays.
         # 0:3 = left hip, 3:6 = right hip, etc. (see enumeration values above)
         self.__body_pose: np.ndarray = np.zeros(self.__model.NUM_BODY_JOINTS * 3, dtype=np.float32)
 
@@ -128,6 +135,16 @@ class SMPLBody:
         self.__faces: np.ndarray = self.__model.faces
         self.__global_pose: np.ndarray = np.eye(4)
         self.__vertices: Optional[np.ndarray] = None
+
+        # Load in any texture image that has been specified, along with its UV coordinates.
+        self.__texture: Optional[OpenGLTexture] = None
+        self.__texture_coords: Optional[np.ndarray] = None
+        self.__texture_image: Optional[np.ndarray] = None
+
+        if texture_coords_filename is not None and texture_image_filename is not None:
+            self.__texture = OpenGLTexture()
+            self.__texture_coords = np.load(texture_coords_filename)
+            self.__texture_image = cv2.imread(texture_image_filename)
 
     # PROPERTIES
 
@@ -185,15 +202,26 @@ class SMPLBody:
         # Step 2: Render the mesh.
         # ~~~
         with OpenGLMatrixContext(GL_MODELVIEW, lambda: OpenGLUtil.mult_matrix(self.__global_pose)):
-            glColor3f(0.7, 0.7, 0.7)
-
             glPushClientAttrib(GL_CLIENT_VERTEX_ARRAY_BIT)
             glEnableClientState(GL_VERTEX_ARRAY)
             glEnableClientState(GL_NORMAL_ARRAY)
             glVertexPointer(3, GL_FLOAT, 0, face_vertices)
             glNormalPointer(GL_FLOAT, 0, face_vertex_normals)
 
-            glDrawArrays(GL_TRIANGLES, 0, len(face_vertices) * 3)
+            if self.__texture is not None:
+                # Make an F*3*2 array that explicitly lists the texture coordinates for each face (F faces,
+                # 3 vertices per face, 2 components per UV texture coordinate pair).
+                face_tex_coords: np.ndarray = self.__texture_coords[self.__faces]
+
+                with OpenGLTextureContext(self.__texture):
+                    self.__texture.set_image(self.__texture_image)
+                    glEnableClientState(GL_TEXTURE_COORD_ARRAY)
+                    glTexCoordPointer(2, GL_DOUBLE, 0, face_tex_coords)
+                    glColor3f(1.0, 1.0, 1.0)
+                    glDrawArrays(GL_TRIANGLES, 0, len(face_vertices) * 3)
+            else:
+                glColor3f(0.7, 0.7, 0.7)
+                glDrawArrays(GL_TRIANGLES, 0, len(face_vertices) * 3)
 
             glPopClientAttrib()
 
