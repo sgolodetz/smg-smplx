@@ -10,6 +10,7 @@ from typing import Optional
 
 from smg.opengl import OpenGLMatrixContext, OpenGLTexture, OpenGLTextureContext, OpenGLUtil
 from smg.skeletons import Skeleton3D
+from smg.utility import ImageUtil
 
 
 # HELPER ENUMERATIONS
@@ -144,7 +145,7 @@ class SMPLBody:
         if texture_coords_filename is not None and texture_image_filename is not None:
             self.__texture = OpenGLTexture()
             self.__texture_coords = np.load(texture_coords_filename)
-            self.__texture_image = cv2.imread(texture_image_filename)
+            self.__texture_image = ImageUtil.flip_channels(np.flip(cv2.imread(texture_image_filename), axis=0))
 
     # PROPERTIES
 
