@@ -245,18 +245,18 @@ class SMPLBody:
             for i in range(24):
                 OpenGLUtil.render_sphere(self.__joints[i], 0.02, slices=10, stacks=10)
 
-    def set(self, body_pose: np.ndarray, midhip_w_t_c: np.ndarray) -> None:
+    def set(self, body_pose: np.ndarray, world_from_midhip: np.ndarray) -> None:
         """
         Set the pose of the body.
 
-        :param body_pose:       An array containing the local rotations for the skeleton's joints.
-        :param midhip_w_t_c:    The global pose of the skeleton's mid-hip joint.
+        :param body_pose:           An array containing the local rotations for the skeleton's joints.
+        :param world_from_midhip:   The global pose of the skeleton's mid-hip joint.
         """
         # Update the internal array containing the local rotations for the skeleton's joints.
         np.copyto(self.__body_pose, body_pose)
 
         # Run the body model to update the mesh and joint positions, and calculate a global pose for the body.
-        self.__update(midhip_w_t_c)
+        self.__update(world_from_midhip)
 
     def set_from_skeleton(self, skeleton: Skeleton3D) -> None:
         """
@@ -265,8 +265,8 @@ class SMPLBody:
         :param skeleton:    The skeleton upon which to base the pose of the body.
         """
         # Try to get the global pose of the skeleton's mid-hip joint. If this isn't possible, early out.
-        midhip_w_t_c: Optional[np.ndarray] = skeleton.global_keypoint_poses.get("MidHip")
-        if midhip_w_t_c is None:
+        world_from_midhip: Optional[np.ndarray] = skeleton.global_keypoint_poses.get("MidHip")
+        if world_from_midhip is None:
             return
 
         # Try to apply the local rotations from the skeleton's keypoints to the joints of the SMPL body.
@@ -281,7 +281,7 @@ class SMPLBody:
         self.__try_apply_local_keypoint_rotation(skeleton, "RShoulder", SMPLJ_RIGHT_SHOULDER)
 
         # Run the body model to update the mesh and joint positions, and calculate a global pose for the body.
-        self.__update(midhip_w_t_c)
+        self.__update(world_from_midhip)
 
     # PRIVATE METHODS
 
@@ -302,11 +302,11 @@ class SMPLBody:
             self.__body_pose[(joint_id - 1) * 3:joint_id * 3] = \
                 Rotation.from_matrix(local_keypoint_rotation).as_rotvec()
 
-    def __update(self, midhip_w_t_c: np.ndarray) -> None:
+    def __update(self, world_from_midhip: np.ndarray) -> None:
         """
         Run the body model to update the mesh and joint positions, and calculate a global pose for the body.
 
-        :param midhip_w_t_c:    The global pose of the skeleton's mid-hip joint.
+        :param world_from_midhip:   The global pose of the skeleton's mid-hip joint.
         """
         # Run the body model to update the mesh and the global joint positions.
         output: smplx.utils.SMPLOutput = self.__model(
@@ -320,7 +320,7 @@ class SMPLBody:
         self.__joints = output.joints.detach().cpu().numpy().squeeze()
 
         # Calculate a global pose for the body.
-        self.__global_pose = midhip_w_t_c.copy()
+        self.__global_pose = world_from_midhip.copy()
         midhip_smplj: np.ndarray = \
             (self.__joints[SMPLJ_PELVIS] + self.__joints[SMPLJ_LEFT_HIP] + self.__joints[SMPLJ_RIGHT_HIP]) / 3
         self.__global_pose[0:3, 3] += midhip_smplj
