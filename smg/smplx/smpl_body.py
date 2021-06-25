@@ -152,9 +152,9 @@ class SMPLBody:
     @property
     def body_pose(self) -> np.ndarray:
         """
-        TODO
+        Get an array containing the local rotations for the body's joints.
 
-        :return:    TODO
+        :return:    An array containing the local rotations for the body's joints.
         """
         return self.__body_pose
 
@@ -204,6 +204,7 @@ class SMPLBody:
         # ~~~
         with OpenGLMatrixContext(GL_MODELVIEW, lambda: OpenGLUtil.mult_matrix(self.__global_pose)):
             glPushClientAttrib(GL_CLIENT_VERTEX_ARRAY_BIT)
+
             glEnableClientState(GL_VERTEX_ARRAY)
             glEnableClientState(GL_NORMAL_ARRAY)
             glVertexPointer(3, GL_FLOAT, 0, face_vertices)
@@ -249,10 +250,10 @@ class SMPLBody:
         """
         Set the pose of the body.
 
-        :param body_pose:           An array containing the local rotations for the skeleton's joints.
-        :param world_from_midhip:   The global pose of the skeleton's mid-hip joint.
+        :param body_pose:           An array containing the local rotations for the body's joints.
+        :param world_from_midhip:   The global pose of the body's mid-hip joint.
         """
-        # Update the internal array containing the local rotations for the skeleton's joints.
+        # Update the internal array containing the local rotations for the body's joints.
         np.copyto(self.__body_pose, body_pose)
 
         # Run the body model to update the mesh and joint positions, and calculate a global pose for the body.
@@ -306,7 +307,7 @@ class SMPLBody:
         """
         Run the body model to update the mesh and joint positions, and calculate a global pose for the body.
 
-        :param world_from_midhip:   The global pose of the skeleton's mid-hip joint.
+        :param world_from_midhip:   The global pose of the body's mid-hip joint.
         """
         # Run the body model to update the mesh and the global joint positions.
         output: smplx.utils.SMPLOutput = self.__model(
