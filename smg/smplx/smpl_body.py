@@ -233,7 +233,7 @@ class SMPLBody:
 
         :param skeleton:    The skeleton upon which to base the pose of the body.
         """
-        self.set_from_skeleton(skeleton)
+        self.set_pose_from_skeleton(skeleton)
         self.render()
 
     def render_joints(self) -> None:
@@ -246,9 +246,9 @@ class SMPLBody:
             for i in range(24):
                 OpenGLUtil.render_sphere(self.__joints[i], 0.02, slices=10, stacks=10)
 
-    def set(self, body_pose: np.ndarray, world_from_midhip: np.ndarray) -> None:
+    def set_manual_pose(self, body_pose: np.ndarray, world_from_midhip: np.ndarray) -> None:
         """
-        Set the pose of the body.
+        Set a manual pose for the body.
 
         :param body_pose:           An array containing the local rotations for the body's joints.
         :param world_from_midhip:   The global pose of the body's mid-hip joint.
@@ -259,7 +259,7 @@ class SMPLBody:
         # Run the body model to update the mesh and joint positions, and calculate a global pose for the body.
         self.__update(world_from_midhip)
 
-    def set_from_skeleton(self, skeleton: Skeleton3D) -> None:
+    def set_pose_from_skeleton(self, skeleton: Skeleton3D) -> None:
         """
         Set the pose of the body based on the specified skeleton.
 
