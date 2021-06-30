@@ -127,6 +127,8 @@ class SMPLBody:
         self.__model: smplx.SMPL = smplx.create(model_folder, "smpl", gender=gender)
 
         # Set up the internal arrays.
+        self.__betas: np.ndarray = np.zeros(self.__model.num_betas, dtype=np.float32)
+
         # 0:3 = left hip, 3:6 = right hip, etc. (see enumeration values above)
         self.__body_pose: np.ndarray = np.zeros(self.__model.NUM_BODY_JOINTS * 3, dtype=np.float32)
 
@@ -150,13 +152,31 @@ class SMPLBody:
     # PROPERTIES
 
     @property
+    def betas(self) -> np.ndarray:
+        """
+        Get a copy of the array that contains the shape parameters for the body.
+
+        :return:    A copy of the array that contains the shape parameters for the body.
+        """
+        return self.__betas.copy()
+
+    @property
     def body_pose(self) -> np.ndarray:
         """
-        Get an array containing the local rotations for the body's joints.
+        Get a copy of the array that contains the local rotations for the body's joints.
 
-        :return:    An array containing the local rotations for the body's joints.
+        :return:    A copy of the array that contains the local rotations for the body's joints.
         """
-        return self.__body_pose
+        return self.__body_pose.copy()
+
+    @property
+    def num_betas(self) -> np.ndarray:
+        """
+        Get the number of shape parameters that the body has.
+
+        :return:    The number of shape parameters that the body has.
+        """
+        return self.__model.num_betas
 
     # PUBLIC METHODS
 
@@ -246,15 +266,21 @@ class SMPLBody:
             for i in range(24):
                 OpenGLUtil.render_sphere(self.__joints[i], 0.02, slices=10, stacks=10)
 
-    def set_manual_pose(self, body_pose: np.ndarray, world_from_midhip: np.ndarray) -> None:
+    def set_manual_pose(self, body_pose: np.ndarray, world_from_midhip: np.ndarray,
+                        *, betas: Optional[np.ndarray] = None) -> None:
         """
         Set a manual pose for the body.
 
         :param body_pose:           An array containing the local rotations for the body's joints.
         :param world_from_midhip:   The global pose of the body's mid-hip joint.
+        :param betas:               An array containing the shape parameters for the body (optional).
         """
         # Update the internal array containing the local rotations for the body's joints.
         np.copyto(self.__body_pose, body_pose)
+
+        # Update the internal array containing the body's shape parameters, if new ones have been specified.
+        if betas is not None:
+            np.copyto(self.__betas, betas)
 
         # Run the body model to update the mesh and joint positions, and calculate a global pose for the body.
         self.__update(world_from_midhip)
@@ -311,7 +337,7 @@ class SMPLBody:
         """
         # Run the body model to update the mesh and the global joint positions.
         output: smplx.utils.SMPLOutput = self.__model(
-            betas=None,
+            betas=torch.from_numpy(self.__betas).unsqueeze(dim=0),
             body_pose=torch.from_numpy(self.__body_pose).unsqueeze(dim=0),
             return_verts=True
         )
@@ -324,7 +350,7 @@ class SMPLBody:
         self.__global_pose = world_from_midhip.copy()
         midhip_smplj: np.ndarray = \
             (self.__joints[SMPLJ_PELVIS] + self.__joints[SMPLJ_LEFT_HIP] + self.__joints[SMPLJ_RIGHT_HIP]) / 3
-        self.__global_pose[0:3, 3] += midhip_smplj
+        self.__global_pose[0:3, 3] -= np.linalg.inv(self.__global_pose[0:3, 0:3]) @ midhip_smplj
 
     # PRIVATE STATIC METHODS
 
