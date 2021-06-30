@@ -310,7 +310,7 @@ class SMPLBody:
         self.__try_apply_local_keypoint_rotation(skeleton, "RShoulder", SMPLJ_RIGHT_SHOULDER)
 
         # Run the body model to update the mesh and joint positions, and calculate a global pose for the body.
-        self.__update(world_from_midhip)
+        self.__update(world_from_midhip, skeleton=skeleton)
 
     # PRIVATE METHODS
 
@@ -331,7 +331,7 @@ class SMPLBody:
             self.__body_pose[(joint_id - 1) * 3:joint_id * 3] = \
                 Rotation.from_matrix(local_keypoint_rotation).as_rotvec()
 
-    def __update(self, world_from_midhip: np.ndarray) -> None:
+    def __update(self, world_from_midhip: np.ndarray, *, skeleton = None) -> None:
         """
         Run the body model to update the mesh and joint positions, and calculate a global pose for the body.
 
@@ -347,6 +347,31 @@ class SMPLBody:
         # Get the updated mesh vertices and global joint positions.
         self.__vertices = output.vertices.detach().cpu().numpy().squeeze()
         self.__joints = output.joints.detach().cpu().numpy().squeeze()
+
+        midhip_smplj: np.ndarray = \
+            (self.__joints[SMPLJ_PELVIS] + self.__joints[SMPLJ_LEFT_HIP] + self.__joints[SMPLJ_RIGHT_HIP]) / 3
+        neck_smplj: np.ndarray = (self.__joints[SMPLJ_LEFT_SHOULDER] + self.__joints[SMPLJ_RIGHT_SHOULDER]) / 2
+        midhip_keypoint = skeleton.keypoints.get("MidHip")
+        neck_keypoint = skeleton.keypoints.get("Neck")
+
+        if midhip_keypoint is not None and neck_keypoint and self.__betas[2] == 0.0:
+            a = np.linalg.norm(midhip_keypoint.position - neck_keypoint.position)
+            b = np.linalg.norm(midhip_smplj - neck_smplj)
+            print(a, b, a / b, np.log2(a / b))
+            # self.__betas[2] = 30 * np.log2(a / b)
+            self.__betas[2] = 100 * (a - b)
+            print(self.__betas[2])
+
+            # Run the body model to update the mesh and the global joint positions.
+            output: smplx.utils.SMPLOutput = self.__model(
+                betas=torch.from_numpy(self.__betas).unsqueeze(dim=0),
+                body_pose=torch.from_numpy(self.__body_pose).unsqueeze(dim=0),
+                return_verts=True
+            )
+
+            # Get the updated mesh vertices and global joint positions.
+            self.__vertices = output.vertices.detach().cpu().numpy().squeeze()
+            self.__joints = output.joints.detach().cpu().numpy().squeeze()
 
         # Calculate a global pose for the body.
         self.__global_pose = world_from_midhip.copy()
