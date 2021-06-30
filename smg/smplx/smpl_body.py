@@ -286,10 +286,10 @@ class SMPLBody:
         if betas is not None:
             np.copyto(self.__betas, betas)
 
-        # Run the body model to update the mesh and joint positions.
+        # Run the body model to update the global joint positions and mesh vertices.
         self.__joints, self.__vertices = self.__run_model()
 
-        # Calculate a global pose for the body.
+        # Calculate the global pose for the body.
         self.__calculate_global_pose(world_from_midhip)
 
     def set_pose_from_skeleton(self, skeleton: Skeleton3D, *, fit_shape: bool = True) -> None:
@@ -328,35 +328,42 @@ class SMPLBody:
             neck_keypoint: Optional[Keypoint] = skeleton.keypoints.get("Neck")
 
             if midhip_keypoint is not None and neck_keypoint:
-                midhip_smplj: np.ndarray = SMPLBody.__calculate_midhip_joint_position(self.__neutral_joints)
+                midhip_smplj: np.ndarray = SMPLBody.__calculate_midhip_position(self.__neutral_joints)
                 neck_smplj: np.ndarray = \
                     (self.__neutral_joints[SMPLJ_LEFT_SHOULDER] + self.__neutral_joints[SMPLJ_RIGHT_SHOULDER]) / 2
 
                 skeleton_torso_length: float = np.linalg.norm(midhip_keypoint.position - neck_keypoint.position)
                 neutral_body_torso_length: float = np.linalg.norm(midhip_smplj - neck_smplj)
 
+                # Note: The factor of 100 here was empirically determined but seems to work ok.
                 self.__betas[2] = 100 * (skeleton_torso_length - neutral_body_torso_length)
 
         # Run the body model to update the global joint positions and mesh vertices.
         self.__joints, self.__vertices = self.__run_model()
 
-        # Calculate a global pose for the body.
+        # Calculate the global pose for the body.
         self.__calculate_global_pose(world_from_midhip)
 
     # PRIVATE METHODS
 
     def __calculate_global_pose(self, world_from_midhip: np.ndarray) -> None:
         """
-        Calculate a global pose for the body.
+        Calculate the global pose for the body.
 
         :param world_from_midhip:   The global pose of the skeleton's mid-hip joint.
-        :return:                    A global pose for the body.
+        :return:                    The global pose for the body.
         """
         self.__global_pose = world_from_midhip.copy()
-        midhip_smplj: np.ndarray = SMPLBody.__calculate_midhip_joint_position(self.__joints)
+        midhip_smplj: np.ndarray = SMPLBody.__calculate_midhip_position(self.__joints)
         self.__global_pose[0:3, 3] -= np.linalg.inv(self.__global_pose[0:3, 0:3]) @ midhip_smplj
 
     def __run_model(self, *, return_verts: bool = True) -> Tuple[np.ndarray, Optional[np.ndarray]]:
+        """
+        Run the SMPL body model.
+
+        :param return_verts:    Whether or not to ask the body model to return the mesh vertices.
+        :return:                The global joint positions and (if requested) the mesh vertices produced by the model.
+        """
         # Run the body model.
         output: smplx.utils.SMPLOutput = self.__model(
             betas=torch.from_numpy(self.__betas).unsqueeze(dim=0),
@@ -364,13 +371,11 @@ class SMPLBody:
             return_verts=return_verts
         )
 
-        # Get the updated global joint positions.
+        # Get the global joint positions.
         joints: np.ndarray = output.joints.detach().cpu().numpy().squeeze()
 
-        # If available, also get the updated mesh vertices.
-        vertices: Optional[np.ndarray] = None
-        if return_verts:
-            vertices = output.vertices.detach().cpu().numpy().squeeze()
+        # If available, also get the mesh vertices.
+        vertices: Optional[np.ndarray] = output.vertices.detach().cpu().numpy().squeeze() if return_verts else None
 
         return joints, vertices
 
@@ -394,7 +399,13 @@ class SMPLBody:
     # PRIVATE STATIC METHODS
 
     @staticmethod
-    def __calculate_midhip_joint_position(joints: np.ndarray) -> np.ndarray:
+    def __calculate_midhip_position(joints: np.ndarray) -> np.ndarray:
+        """
+        Calculate the mid-hip position for the SMPL body, given the known positions of its joints (in some pose).
+
+        :param joints:  The positions of the SMPL body's joints (in some pose).
+        :return:        The mid-hip position for the SMPL body.
+        """
         return (joints[SMPLJ_PELVIS] + joints[SMPLJ_LEFT_HIP] + joints[SMPLJ_RIGHT_HIP]) / 3
 
     @staticmethod
