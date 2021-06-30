@@ -127,6 +127,8 @@ class SMPLBody:
         self.__model: smplx.SMPL = smplx.create(model_folder, "smpl", gender=gender)
 
         # Set up the internal arrays.
+        # 0 = height (-ve short, +ve tall), 1 = weight (-ve fat, +ve thin),
+        # 2 = torso stretch (-ve compress, +ve stretch), etc.
         self.__betas: np.ndarray = np.zeros(self.__model.num_betas, dtype=np.float32)
 
         # 0:3 = left hip, 3:6 = right hip, etc. (see enumeration values above)
