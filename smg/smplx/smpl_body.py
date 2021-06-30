@@ -6,10 +6,10 @@ import torch
 
 from OpenGL.GL import *
 from scipy.spatial.transform import Rotation
-from typing import Optional
+from typing import Optional, Tuple
 
 from smg.opengl import OpenGLMatrixContext, OpenGLTexture, OpenGLTextureContext, OpenGLUtil
-from smg.skeletons import Skeleton3D
+from smg.skeletons import Keypoint, Skeleton3D
 from smg.utility import ImageUtil
 
 
@@ -139,6 +139,7 @@ class SMPLBody:
 
         self.__faces: np.ndarray = self.__model.faces
         self.__global_pose: np.ndarray = np.eye(4)
+        self.__neutral_joints: Optional[np.ndarray] = None
         self.__vertices: Optional[np.ndarray] = None
 
         # Load in any texture image that has been specified, along with its UV coordinates.
@@ -249,13 +250,14 @@ class SMPLBody:
 
             glPopClientAttrib()
 
-    def render_from_skeleton(self, skeleton: Skeleton3D) -> None:
+    def render_from_skeleton(self, skeleton: Skeleton3D, *, fit_shape: bool = True) -> None:
         """
         Set the pose of the body based on the specified skeleton and then render the body.
 
         :param skeleton:    The skeleton upon which to base the pose of the body.
+        :param fit_shape:   Whether or not to try to fit the body model's shape parameters based on the skeleton.
         """
-        self.set_pose_from_skeleton(skeleton)
+        self.set_pose_from_skeleton(skeleton, fit_shape=fit_shape)
         self.render()
 
     def render_joints(self) -> None:
@@ -284,14 +286,18 @@ class SMPLBody:
         if betas is not None:
             np.copyto(self.__betas, betas)
 
-        # Run the body model to update the mesh and joint positions, and calculate a global pose for the body.
-        self.__update(world_from_midhip)
+        # Run the body model to update the global joint positions and mesh vertices.
+        self.__joints, self.__vertices = self.__run_model()
 
-    def set_pose_from_skeleton(self, skeleton: Skeleton3D) -> None:
+        # Calculate the global pose for the body.
+        self.__calculate_global_pose(world_from_midhip)
+
+    def set_pose_from_skeleton(self, skeleton: Skeleton3D, *, fit_shape: bool = True) -> None:
         """
         Set the pose of the body based on the specified skeleton.
 
         :param skeleton:    The skeleton upon which to base the pose of the body.
+        :param fit_shape:   Whether or not to try to fit the body model's shape parameters based on the skeleton.
         """
         # Try to get the global pose of the skeleton's mid-hip joint. If this isn't possible, early out.
         world_from_midhip: Optional[np.ndarray] = skeleton.global_keypoint_poses.get("MidHip")
@@ -309,10 +315,69 @@ class SMPLBody:
         self.__try_apply_local_keypoint_rotation(skeleton, "RKnee", SMPLJ_RIGHT_KNEE)
         self.__try_apply_local_keypoint_rotation(skeleton, "RShoulder", SMPLJ_RIGHT_SHOULDER)
 
-        # Run the body model to update the mesh and joint positions, and calculate a global pose for the body.
-        self.__update(world_from_midhip)
+        # If shape fitting is enabled:
+        if fit_shape:
+            # If we haven't yet calculated the positions of the joints when the SMPL body is in its neutral pose,
+            # calculate them now.
+            if self.__neutral_joints is None:
+                self.__betas.fill(0.0)
+                self.__neutral_joints, _ = self.__run_model(return_verts=False)
+
+            # Try to stretch the torso of the SMPL body to better fit the detected skeleton.
+            midhip_keypoint: Optional[Keypoint] = skeleton.keypoints.get("MidHip")
+            neck_keypoint: Optional[Keypoint] = skeleton.keypoints.get("Neck")
+
+            if midhip_keypoint is not None and neck_keypoint:
+                midhip_smplj: np.ndarray = SMPLBody.__calculate_midhip_position(self.__neutral_joints)
+                neck_smplj: np.ndarray = \
+                    (self.__neutral_joints[SMPLJ_LEFT_SHOULDER] + self.__neutral_joints[SMPLJ_RIGHT_SHOULDER]) / 2
+
+                skeleton_torso_length: float = np.linalg.norm(midhip_keypoint.position - neck_keypoint.position)
+                neutral_body_torso_length: float = np.linalg.norm(midhip_smplj - neck_smplj)
+
+                # Note: The factor of 100 here was empirically determined but seems to work ok.
+                self.__betas[2] = 100 * (skeleton_torso_length - neutral_body_torso_length)
+
+        # Run the body model to update the global joint positions and mesh vertices.
+        self.__joints, self.__vertices = self.__run_model()
+
+        # Calculate the global pose for the body.
+        self.__calculate_global_pose(world_from_midhip)
 
     # PRIVATE METHODS
+
+    def __calculate_global_pose(self, world_from_midhip: np.ndarray) -> None:
+        """
+        Calculate the global pose for the body.
+
+        :param world_from_midhip:   The global pose of the skeleton's mid-hip joint.
+        :return:                    The global pose for the body.
+        """
+        self.__global_pose = world_from_midhip.copy()
+        midhip_smplj: np.ndarray = SMPLBody.__calculate_midhip_position(self.__joints)
+        self.__global_pose[0:3, 3] -= np.linalg.inv(self.__global_pose[0:3, 0:3]) @ midhip_smplj
+
+    def __run_model(self, *, return_verts: bool = True) -> Tuple[np.ndarray, Optional[np.ndarray]]:
+        """
+        Run the SMPL body model.
+
+        :param return_verts:    Whether or not to ask the body model to return the mesh vertices.
+        :return:                The global joint positions and (if requested) the mesh vertices produced by the model.
+        """
+        # Run the body model.
+        output: smplx.utils.SMPLOutput = self.__model(
+            betas=torch.from_numpy(self.__betas).unsqueeze(dim=0),
+            body_pose=torch.from_numpy(self.__body_pose).unsqueeze(dim=0),
+            return_verts=return_verts
+        )
+
+        # Get the global joint positions.
+        joints: np.ndarray = output.joints.detach().cpu().numpy().squeeze()
+
+        # If available, also get the mesh vertices.
+        vertices: Optional[np.ndarray] = output.vertices.detach().cpu().numpy().squeeze() if return_verts else None
+
+        return joints, vertices
 
     def __try_apply_local_keypoint_rotation(self, skeleton: Skeleton3D, keypoint_name: str, joint_id: int) -> None:
         """
@@ -331,30 +396,17 @@ class SMPLBody:
             self.__body_pose[(joint_id - 1) * 3:joint_id * 3] = \
                 Rotation.from_matrix(local_keypoint_rotation).as_rotvec()
 
-    def __update(self, world_from_midhip: np.ndarray) -> None:
-        """
-        Run the body model to update the mesh and joint positions, and calculate a global pose for the body.
-
-        :param world_from_midhip:   The global pose of the body's mid-hip joint.
-        """
-        # Run the body model to update the mesh and the global joint positions.
-        output: smplx.utils.SMPLOutput = self.__model(
-            betas=torch.from_numpy(self.__betas).unsqueeze(dim=0),
-            body_pose=torch.from_numpy(self.__body_pose).unsqueeze(dim=0),
-            return_verts=True
-        )
-
-        # Get the updated mesh vertices and global joint positions.
-        self.__vertices = output.vertices.detach().cpu().numpy().squeeze()
-        self.__joints = output.joints.detach().cpu().numpy().squeeze()
-
-        # Calculate a global pose for the body.
-        self.__global_pose = world_from_midhip.copy()
-        midhip_smplj: np.ndarray = \
-            (self.__joints[SMPLJ_PELVIS] + self.__joints[SMPLJ_LEFT_HIP] + self.__joints[SMPLJ_RIGHT_HIP]) / 3
-        self.__global_pose[0:3, 3] -= np.linalg.inv(self.__global_pose[0:3, 0:3]) @ midhip_smplj
-
     # PRIVATE STATIC METHODS
+
+    @staticmethod
+    def __calculate_midhip_position(joints: np.ndarray) -> np.ndarray:
+        """
+        Calculate the mid-hip position for the SMPL body, given the known positions of its joints (in some pose).
+
+        :param joints:  The positions of the SMPL body's joints (in some pose).
+        :return:        The mid-hip position for the SMPL body.
+        """
+        return (joints[SMPLJ_PELVIS] + joints[SMPLJ_LEFT_HIP] + joints[SMPLJ_RIGHT_HIP]) / 3
 
     @staticmethod
     def __normalise_inplace(vecs: np.ndarray) -> None:
