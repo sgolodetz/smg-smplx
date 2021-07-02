@@ -355,7 +355,7 @@ class SMPLBody:
         """
         self.__global_pose = world_from_midhip.copy()
         midhip_smplj: np.ndarray = SMPLBody.__calculate_midhip_position(self.__joints)
-        self.__global_pose[0:3, 3] -= np.linalg.inv(self.__global_pose[0:3, 0:3]) @ midhip_smplj
+        self.__global_pose[0:3, 3] -= self.__global_pose[0:3, 0:3] @ midhip_smplj
 
     def __run_model(self, *, return_verts: bool = True) -> Tuple[np.ndarray, Optional[np.ndarray]]:
         """
