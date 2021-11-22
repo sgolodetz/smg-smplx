@@ -183,13 +183,15 @@ class SMPLBody:
 
     # PUBLIC METHODS
 
-    def render(self) -> None:
+    def render(self, *, colour: Optional[Tuple[float, float, float]] = None) -> None:
         """
         Render the body using OpenGL.
 
         .. note::
             The implementation is an adapted version of:
             https://sites.google.com/site/dlampetest/python/calculating-normals-of-a-triangle-mesh-using-numpy
+
+        :param colour:  An optional colour with which to render the body if no texture is being used.
         """
         # ~~~
         # Step 1: Prepare the mesh for rendering.
@@ -245,20 +247,25 @@ class SMPLBody:
                     glColor3f(1.0, 1.0, 1.0)
                     glDrawArrays(GL_TRIANGLES, 0, len(face_vertices) * 3)
             else:
-                glColor3f(0.7, 0.7, 0.7)
+                if colour is None:
+                    colour = (0.7, 0.7, 0.7)
+
+                glColor3f(*colour)
                 glDrawArrays(GL_TRIANGLES, 0, len(face_vertices) * 3)
 
             glPopClientAttrib()
 
-    def render_from_skeleton(self, skeleton: Skeleton3D, *, fit_shape: bool = True) -> None:
+    def render_from_skeleton(self, skeleton: Skeleton3D, *, colour: Optional[Tuple[float, float, float]] = None,
+                             fit_shape: bool = True) -> None:
         """
         Set the pose of the body based on the specified skeleton and then render the body.
 
         :param skeleton:    The skeleton upon which to base the pose of the body.
+        :param colour:      An optional colour with which to render the body if no texture is being used.
         :param fit_shape:   Whether or not to try to fit the body model's shape parameters based on the skeleton.
         """
         self.set_pose_from_skeleton(skeleton, fit_shape=fit_shape)
-        self.render()
+        self.render(colour=colour)
 
     def render_joints(self) -> None:
         """Render the body's joints (e.g. for debugging purposes)."""
