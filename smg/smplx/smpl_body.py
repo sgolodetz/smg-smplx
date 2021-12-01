@@ -334,7 +334,7 @@ class SMPLBody:
             midhip_keypoint: Optional[Keypoint] = skeleton.keypoints.get("MidHip")
             neck_keypoint: Optional[Keypoint] = skeleton.keypoints.get("Neck")
 
-            if midhip_keypoint is not None and neck_keypoint:
+            if midhip_keypoint is not None and neck_keypoint is not None:
                 midhip_smplj: np.ndarray = SMPLBody.__calculate_midhip_position(self.__neutral_joints)
                 neck_smplj: np.ndarray = \
                     (self.__neutral_joints[SMPLJ_LEFT_SHOULDER] + self.__neutral_joints[SMPLJ_RIGHT_SHOULDER]) / 2
