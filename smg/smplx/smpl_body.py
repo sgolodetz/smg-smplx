@@ -1,5 +1,6 @@
 import cv2
 import numpy as np
+import os
 import smplx
 import smplx.utils
 import torch
@@ -111,20 +112,28 @@ class SMPLBody:
 
     # CONSTRUCTOR
 
-    def __init__(self, gender: str, *, model_folder: str = "D:/smplx/models",
+    def __init__(self, gender: str, *, model_dir: Optional[str] = None,
                  texture_coords_filename: Optional[str] = None,
                  texture_image_filename: Optional[str] = None):
         """
         Construct an SMPL body.
 
         :param gender:                  The gender of the SMPL body model to load.
-        :param model_folder:            The folder containing the SMPL body models.
+        :param model_dir:               The directory containing the SMPL body models.
         :param texture_coords_filename: The name of the file containing the UV coordinates for the texture (optional).
         :param texture_image_filename:  The name of the file containing the image for the texture (optional).
         """
+        # Try to determine the model directory.
+        if model_dir is None:
+            model_dir = os.environ.get("SMGLIB_SMPLX_MODEL_DIR")
+            if model_dir is None:
+                raise RuntimeError(
+                    "Could not determine SMPL-X model directory: please add SMGLIB_SMPLX_MODEL_DIR to the environment"
+                )
+
         # Load the SMPL body model.
         # noinspection PyTypeChecker
-        self.__model: smplx.SMPL = smplx.create(model_folder, "smpl", gender=gender)
+        self.__model: smplx.SMPL = smplx.create(model_dir, "smpl", gender=gender)
 
         # Set up the internal arrays.
         # 0 = height (-ve short, +ve tall), 1 = weight (-ve fat, +ve thin),

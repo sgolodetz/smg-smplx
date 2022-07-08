@@ -12,11 +12,7 @@ Note: Please read the [top-level README](https://github.com/sgolodetz/smglib/blo
 
 2. Check out the `master` branch.
 
-3. Activate the Conda environment, e.g.
-
-   ```
-   conda activate smglib
-   ```
+3. Activate the Conda environment, e.g. `conda activate smglib`.
 
 4. If you haven't already installed PyTorch, install it now. In our case, we did this via:
 
@@ -29,6 +25,22 @@ Note: Please read the [top-level README](https://github.com/sgolodetz/smglib/blo
    However, you may need a different version of PyTorch for your system, so change this as needed. (In particular, the latest version will generally be ok.)
 
 5. Run `pip install -e .` at the terminal.
+
+6. Set up the data directory:
+
+   i. Clone our fork of SMPL-X into `C:/smplx`, e.g.
+
+   ```
+   git clone git@github.com:sgolodetz/smplx.git C:/smplx
+   ```
+
+   Note: If you use a directory other than `C:/smplx`, you'll need to change the paths below.
+
+   ii. Obtain the `SMPL_MALE.pkl` and `SMPL_FEMALE.pkl` files from [here](https://smpl.is.tue.mpg.de) (you'll need to register), and put them in `C:/smplx/models/smpl`.
+
+   iii. Set (at a system level) the `SMGLIB_SMPLX_MODEL_DIR` environment variable to point to the model directory, e.g. `C:/smplx/models`.
+
+   iv. Obtain the [SURREAL](https://github.com/gulvarol/surreal) textures and put them in the `C:/smplx/textures/smpl/surreal` directory. For reference, the files you need are listed [here](https://github.com/gulvarol/surreal/blob/master/download/files/files_smpl_data.txt), but you'll need to register to access them.
 
 ### Publications
 
