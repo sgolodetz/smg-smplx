@@ -112,24 +112,30 @@ class SMPLBody:
 
     # CONSTRUCTOR
 
-    def __init__(self, gender: str, *, model_dir: Optional[str] = None,
-                 texture_coords_filename: Optional[str] = None,
+    def __init__(self, gender: str, *, model_dir: Optional[str] = None, texture_dir: Optional[str] = None,
                  texture_image_filename: Optional[str] = None):
         """
         Construct an SMPL body.
 
+        .. note::
+            Specifying the model and texture directories is optional. If either of them is not specified,
+            we will try to deduce it from the SMGLIB_SMPLX_DIR environment variable (if set).
+
         :param gender:                  The gender of the SMPL body model to load.
         :param model_dir:               The directory containing the SMPL body models.
-        :param texture_coords_filename: The name of the file containing the UV coordinates for the texture (optional).
+        :param texture_dir:             The directory containing the SMPL textures.
         :param texture_image_filename:  The name of the file containing the image for the texture (optional).
         """
-        # Try to determine the model directory.
-        if model_dir is None:
-            model_dir = os.environ.get("SMGLIB_SMPLX_MODEL_DIR")
-            if model_dir is None:
-                raise RuntimeError(
-                    "Could not determine SMPL-X model directory: please add SMGLIB_SMPLX_MODEL_DIR to the environment"
-                )
+        # Try to determine the SMPL-X model and texture directories.
+        smplx_dir: Optional[str] = os.environ.get("SMGLIB_SMPLX_DIR")
+        if model_dir is None and smplx_dir is not None:
+            model_dir = os.path.join(smplx_dir, "models")
+        if texture_dir is None and smplx_dir is not None:
+            texture_dir = os.path.join(smplx_dir, "textures")
+        if model_dir is None or texture_dir is None:
+            raise RuntimeError(
+                "Could not determine one or more SMPL-X directories: please add SMGLIB_SMPLX_DIR to the environment"
+            )
 
         # Load the SMPL body model.
         # noinspection PyTypeChecker
@@ -156,10 +162,12 @@ class SMPLBody:
         self.__texture_coords: Optional[np.ndarray] = None
         self.__texture_image: Optional[np.ndarray] = None
 
-        if texture_coords_filename is not None and texture_image_filename is not None:
+        if texture_image_filename is not None:
             self.__texture = OpenGLTexture()
-            self.__texture_coords = np.load(texture_coords_filename)
-            self.__texture_image = ImageUtil.flip_channels(np.flip(cv2.imread(texture_image_filename), axis=0))
+            self.__texture_coords = np.load(os.path.join(texture_dir, "smpl", "texture_coords.npy"))
+            self.__texture_image = ImageUtil.flip_channels(np.flip(cv2.imread(
+                os.path.join(texture_dir, "smpl", texture_image_filename)
+            ), axis=0))
 
     # PROPERTIES
 

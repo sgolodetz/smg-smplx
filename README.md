@@ -36,9 +36,9 @@ Note: Please read the [top-level README](https://github.com/sgolodetz/smglib/blo
 
    Note: If you use a directory other than `C:/smplx`, you'll need to change the paths below.
 
-   ii. Obtain the `SMPL_MALE.pkl` and `SMPL_FEMALE.pkl` files from [here](https://smpl.is.tue.mpg.de) (you'll need to register), and put them in `C:/smplx/models/smpl`.
+   ii. Set (at a system level) the `SMGLIB_SMPLX_DIR` environment variable to point to `C:/smplx`.
 
-   iii. Set (at a system level) the `SMGLIB_SMPLX_MODEL_DIR` environment variable to point to the model directory, e.g. `C:/smplx/models`.
+   iii. Obtain the `SMPL_MALE.pkl` and `SMPL_FEMALE.pkl` files from [here](https://smpl.is.tue.mpg.de) (you'll need to register), and put them in `C:/smplx/models/smpl`.
 
    iv. Obtain the [SURREAL](https://github.com/gulvarol/surreal) textures and put them in the `C:/smplx/textures/smpl/surreal` directory. For reference, the files you need are listed [here](https://github.com/gulvarol/surreal/blob/master/download/files/files_smpl_data.txt), but you'll need to register to access them.
 
