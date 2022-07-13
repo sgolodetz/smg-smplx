@@ -1,6 +1,8 @@
 # smg-smplx
 
-This Python package provides a wrapper around relevant bits of SMPL-X.
+![teaser](teaser.png)
+
+This Python package provides a wrapper around relevant bits of SMPL-X. It also includes our method for fitting an SMPL body model to a 3D skeleton.
 
 It is a submodule of [smglib](https://github.com/sgolodetz/smglib), the open-source Python framework associated with our drone research in the [Cyber-Physical Systems](https://www.cs.ox.ac.uk/activities/cyberphysical/) group at the University of Oxford.
 
